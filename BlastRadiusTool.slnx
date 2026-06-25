@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="BlastRadiusUI.Tests/BlastRadiusUI.Tests.csproj" />
+  <Project Path="BlastRadiusUI/BlastRadiusUI.csproj" />
+</Solution>

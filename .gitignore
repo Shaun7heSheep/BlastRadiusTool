@@ -1,0 +1,19 @@
+# Visual Studio
+.vs/
+*.user
+
+# .NET build outputs
+bin/
+obj/
+
+# Python
+__pycache__/
+*.pyc
+.python_version
+
+# Azure Functions local secrets — NEVER commit
+BlastRadiusApi/local.settings.json
+
+# Environment files
+.env
+*.env.local
