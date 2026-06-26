@@ -242,9 +242,9 @@ Download from: https://learn.microsoft.com/en-us/azure/architecture/icons/
 Follow RED→GREEN→REFACTOR for every new model type or deserialisation change:
 
 1. **Write the failing test first** in `BlastRadiusUI.Tests/` before creating or changing a model in `Models/GraphData.cs`.
-2. **Run `dotnet test` and confirm RED** — a build error (type not found) is a valid RED signal when the record doesn't exist yet.
+2. **Compile and run the Microsoft Testing Platform test project to confirm RED** — a build error (type not found) is a valid RED signal when the record doesn't exist yet. After compilation, run the built test host directly, or use `dotnet run --project BlastRadiusUI.Tests`.
 3. **Define the minimal record** to make the test pass.
-4. **Run `dotnet test` again and confirm GREEN**.
+4. **Re-run the compiled test host and confirm GREEN**.
 
 Key testing rules:
 - All tests in `BlastRadiusUI.Tests/` must use `new JsonSerializerOptions(JsonSerializerDefaults.Web)` — this replicates Blazor's default `HttpClient` deserialisation behaviour.
@@ -259,4 +259,4 @@ Delegate test writing to the **tester agent** for comprehensive coverage. For a 
 1. Read the current file you're editing.
 2. Grep for existing JS interop calls or component patterns before adding new ones.
 3. Check `BlastRadiusUI.csproj` before adding a NuGet reference.
-4. Run `dotnet test` to confirm the baseline before changing model types.
+4. Compile and run the Microsoft Testing Platform test project to confirm the baseline before changing model types.

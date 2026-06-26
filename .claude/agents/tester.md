@@ -15,7 +15,7 @@ You are the test engineer for the **Azure Service Blast Radius Tool**. You own e
 | Suite | Framework | Location | Run command |
 |---|---|---|---|
 | API tests | pytest | `BlastRadiusApi/tests/` | `cd BlastRadiusApi && python -m pytest` |
-| UI tests | xUnit v3 (.NET 10) | `BlastRadiusUI.Tests/` | `dotnet test` |
+| UI tests | xUnit v3 + Microsoft Testing Platform (.NET 10) | `BlastRadiusUI.Tests/` | compile once, then run the built test host directly or `dotnet run --project BlastRadiusUI.Tests` |
 
 ## File map
 
@@ -43,7 +43,7 @@ For every new function or bug fix:
 1. **Write the failing test first** — before touching any production code.
 2. **Run the test suite and confirm RED** — the test must execute and fail for the intended reason.
    - Python: `cd BlastRadiusApi && python -m pytest -v`
-   - C#: `dotnet test`
+    - C#: compile the Microsoft Testing Platform test project, then run the built test host directly or use `dotnet run --project BlastRadiusUI.Tests`
 3. **Implement the minimal production code** to make the test pass.
 4. **Run again and confirm GREEN**.
 5. **Refactor** if needed, keeping tests green.
@@ -268,9 +268,8 @@ Requires: `pip install pytest pytest-cov` (add to `requirements.txt` dev section
 ### C# (UI)
 
 ```powershell
-dotnet test                                         # all tests
-dotnet test --filter "FullyQualifiedName~ModelDes"  # single test by name match
-dotnet test --collect "Code Coverage"               # with coverage
+dotnet run --project BlastRadiusUI.Tests                         # build and run the test host
+& .\BlastRadiusUI.Tests\bin\Debug\net10.0\BlastRadiusUI.Tests.exe  # run the already built host directly
 ```
 
 ## Test naming conventions
@@ -299,5 +298,5 @@ dotnet test --collect "Code Coverage"               # with coverage
 1. **Read the source file** you are testing — stubs may be partially filled or fully implemented.
 2. **Read conftest.py** (Python) or existing test files (C#) — reuse existing fixtures and patterns.
 3. **Check that test dependencies are installed** — `pytest` in `requirements.txt`, xUnit packages in `.csproj`.
-4. **Run the existing suite first** — `python -m pytest` / `dotnet test` — ensure you are not breaking passing tests.
+4. **Run the existing suite first** — `python -m pytest` / compile and run the Microsoft Testing Platform test host — ensure you are not breaking passing tests.
 5. **Grep for the function name** you are testing to see if tests already exist before writing new ones.
