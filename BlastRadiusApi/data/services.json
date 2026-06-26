@@ -3,70 +3,70 @@
     {
       "id": "payments-servicebus",
       "label": "Payments Service Bus",
-      "azureType": "Microsoft.ServiceBus/namespaces",
+      "azureType": "service-bus",
       "app": "payments",
       "criticality": "high"
     },
     {
       "id": "order-function",
       "label": "Order Function",
-      "azureType": "Microsoft.Web/sites",
+      "azureType": "function-app",
       "app": "orders",
       "criticality": "high"
     },
     {
       "id": "inventory-function",
       "label": "Inventory Function",
-      "azureType": "Microsoft.Web/sites",
+      "azureType": "function-app",
       "app": "inventory",
       "criticality": "high"
     },
     {
       "id": "notification-function",
       "label": "Notification Function",
-      "azureType": "Microsoft.Web/sites",
+      "azureType": "function-app",
       "app": "notifications",
       "criticality": "medium"
     },
     {
       "id": "cosmos-db",
       "label": "Cosmos DB",
-      "azureType": "Microsoft.DocumentDB/databaseAccounts",
+      "azureType": "cosmos-db",
       "app": "shared",
       "criticality": "high"
     },
     {
       "id": "order-db",
       "label": "Order Database",
-      "azureType": "Microsoft.Sql/servers/databases",
+      "azureType": "sql-database",
       "app": "orders",
       "criticality": "high"
     },
     {
       "id": "api-management",
       "label": "API Management",
-      "azureType": "Microsoft.ApiManagement/service",
+      "azureType": "api-management",
       "app": "shared",
       "criticality": "high"
     },
     {
       "id": "app-insights",
       "label": "Application Insights",
-      "azureType": "Microsoft.Insights/components",
+      "azureType": "application-insights",
       "app": "shared",
       "criticality": "medium"
     },
     {
       "id": "key-vault",
       "label": "Key Vault",
-      "azureType": "Microsoft.KeyVault/vaults",
+      "azureType": "key-vault",
       "app": "shared",
       "criticality": "high"
     },
     {
       "id": "blob-storage",
       "label": "Blob Storage",
-      "azureType": "Microsoft.Storage/storageAccounts",
+      "azureType": "storage-account",
       "app": "shared",
       "criticality": "medium"
     }
