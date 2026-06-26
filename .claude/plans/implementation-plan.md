@@ -2,7 +2,7 @@
 
 ## Context
 
-The entire codebase is scaffolded but **nothing is implemented**. All four Azure Function endpoints are default "Hello, name" stubs. `graph_utils.py`, `signalr_utils.py`, and `seed_graph.py` are empty files. The Blazor frontend is a "Hello, world!" stub. No test infrastructure exists beyond a placeholder `Assert.True(true)`. No graph data, no models, no JS interop.
+Phase 0 foundation is **complete and validated**. All scaffolding is in place. Four Azure Function endpoints are registered as "Hello, name" stubs. `graph_utils.py`, `signalr_utils.py`, and `seed_graph.py` are empty stubs ready for implementation. The Blazor frontend is a "Hello, world!" stub with all NuGet packages installed. Test infrastructure (pytest + xUnit v3) is configured. Graph data (`services.json`) and alert fixture are authored and validated.
 
 This plan sequences the full implementation across 5 agents (`architect`, `backend`, `frontend`, `graph-data`, `tester`) using TDD (RED-GREEN-REFACTOR) and respecting the 9 non-negotiable invariants defined in the architect agent.
 
@@ -19,57 +19,69 @@ This plan sequences the full implementation across 5 agents (`architect`, `backe
 
 ---
 
-## Phase 0 — Foundation (all parallel, no dependencies)
+## Phase 0 — Foundation (COMPLETE ✅)
 
-### Step 0.1 — Python test scaffolding
+> **Status**: All steps validated and passing. Three post-validation fixes applied in commit `e75e4f6`.
+
+### Step 0.1 — Python test scaffolding ✅
 **Agent**: tester
 **Files**: `BlastRadiusApi/pyproject.toml`, `BlastRadiusApi/tests/__init__.py`, `BlastRadiusApi/tests/conftest.py`
-- Create `pyproject.toml` with `[tool.pytest.ini_options]` — `testpaths = ["tests"]`, `pythonpath = ["."]`
-- Create `tests/__init__.py` (empty package marker)
-- Create `tests/conftest.py` with fixtures: `simple_graph_data` (A→B→C chain), `diamond_graph_data` (A→B, A→C, B→D, C→D), `single_node_graph_data`, `sample_alert_payload`
-- **Verify**: `cd BlastRadiusApi && python -m pytest` collects 0 tests, exits 0
+- `pyproject.toml` with `[tool.pytest.ini_options]` — `testpaths = ["tests"]`, `pythonpath = ["."]`
+- `tests/__init__.py` (empty package marker)
+- `tests/conftest.py` with fixtures: `simple_graph_data`, `diamond_graph_data`, `single_node_graph_data`, `sample_alert_payload`
+- **Post-validation fix**: Node IDs changed from placeholders (A/B/C/D) to realistic Azure resource names (api-management, order-function, payments-servicebus, cosmos-db, inventory-function)
+- **Post-validation fix**: `sample_alert_payload` now reads from `tests/fixtures/sample_alert_payload.json` instead of inline duplication
+- **Post-validation fix**: `azureType` values in fixtures use kebab-case icon keys (function-app, service-bus) instead of ARM strings
+- **Verified**: `python -m pytest --collect-only` — exits cleanly, rootdir and testpaths correct
 
-### Step 0.2 — Python dependencies
+### Step 0.2 — Python dependencies ✅
 **Agent**: backend
 **File**: `BlastRadiusApi/requirements.txt`
-- Add: `networkx`, `azure-storage-blob`, `azure-identity`, `requests`, `pytest` (dev)
+- Contains: `azure-functions`, `networkx`, `azure-storage-blob`, `azure-identity`, `requests`, `pytest`
+- **Note for later**: versions are unpinned — pin before production deployment
 
-### Step 0.3 — Graph data + alert fixture
+### Step 0.3 — Graph data + alert fixture ✅
 **Agent**: graph-data
 **Files**: `BlastRadiusApi/data/services.json`, `BlastRadiusApi/tests/fixtures/sample_alert_payload.json`
-- Create `data/` directory
-- Author `services.json` — 10 nodes, 12 edges matching the mockup image (Service Bus, Order Function, Inventory Fn, Notification Fn, Cosmos DB, Order DB, API Management, App Insights, Key Vault, Blob Storage across Payments/Orders apps)
-- Populate `sample_alert_payload.json` with full Azure Monitor common alert schema targeting `payments-servicebus`
-- **Invariants**: 1 (node id == resource name), 2 (edge direction: consumer → dependency)
+- `services.json` — 10 nodes, 12 edges. All required services present.
+- `sample_alert_payload.json` — full Azure Monitor common alert schema targeting `payments-servicebus`
+- **Post-validation fix**: `azureType` values remapped from ARM resource-provider strings to kebab-case icon keys (e.g. `Microsoft.Web/sites` → `function-app`)
+- **Invariants verified**: 1 (node id == resource name), 2 (edge direction: consumer → dependency)
+- **Validated**: No dangling edge refs, no orphan nodes, all IDs unique
 
-### Step 0.4 — Local settings template
+### Step 0.4 — Local settings template ✅
 **Agent**: backend
 **File**: `BlastRadiusApi/local.settings.json.example`
-- Populate with: `FUNCTIONS_WORKER_RUNTIME`, `AzureWebJobsStorage`, `AzureSignalRConnectionString`, `BlobStorageAccountUrl`, CORS config for localhost
+- Contains: `FUNCTIONS_WORKER_RUNTIME`, `AzureWebJobsStorage`, `AzureSignalRConnectionString`, `BlobStorageAccountUrl`, CORS for localhost:5178/7206
 
-### Step 0.5 — C# NuGet packages + cleanup
+### Step 0.5 — C# NuGet packages + cleanup ✅
 **Agent**: frontend
 **Files**: `BlastRadiusUI/BlastRadiusUI.csproj`, `BlastRadiusUI.Tests/UnitTest1.cs`
-- Add to `.csproj`: `Microsoft.AspNetCore.SignalR.Client 10.0.9`, `Microsoft.FluentUI.AspNetCore.Components 4.14.2`, `Microsoft.FluentUI.AspNetCore.Components.Icons 4.14.2`
-- Delete `UnitTest1.cs` (placeholder)
-- **Verify**: `dotnet build`
+- NuGet packages installed: `Microsoft.AspNetCore.SignalR.Client 10.0.9`, `Microsoft.FluentUI.AspNetCore.Components 4.14.2`, `Microsoft.FluentUI.AspNetCore.Components.Icons 4.14.2`
+- `UnitTest1.cs` deleted
+- Tests project: xUnit v3 (3.2.2), project reference to BlastRadiusUI
+- **Verified**: `dotnet build` — both projects succeed, 0 warnings, 0 errors
+
+### Implementation notes carried forward
+- `function_app.py`: 4 routes registered but HTTP methods not yet constrained (all accept GET+POST) — fix in Phase 4
+- `Program.cs`: `#if DEBUG` localhost:7071 HttpClient pattern not yet present — add in Phase 6
 
 ---
 
-## Phase 1 — Pure Graph Engine (TDD, zero Azure dependencies)
+## Phase 1 — Pure Graph Engine (TDD, zero Azure dependencies) — NEXT UP
 
 ### Step 1.1 — RED: graph_utils unit tests
 **Agent**: tester
 **File**: `BlastRadiusApi/tests/test_graph_utils.py`
-**Depends on**: 0.1, 0.2
+**Depends on**: 0.1 ✅, 0.2 ✅
 - Write all tests before implementation:
   - `test_load_graph_valid_json` — returns dict with `nodes`/`edges`
   - `test_load_graph_malformed_json` — raises `json.JSONDecodeError`
   - `test_build_nx_graph_node_count` / `_edge_count` / `_edge_direction`
-  - `test_compute_blast_radius_transitive_chain` — fail C → {A, B}
-  - `test_compute_blast_radius_single_hop` — fail B → {A}
-  - `test_compute_blast_radius_leaf_node` — fail A → []
-  - `test_compute_blast_radius_diamond_no_duplicates` — fail D → exactly 3, no dupes
+  - `test_compute_blast_radius_transitive_chain` — fail payments-servicebus → {api-management, order-function}
+  - `test_compute_blast_radius_single_hop` — fail order-function → {api-management}
+  - `test_compute_blast_radius_leaf_node` — fail api-management → []
+  - `test_compute_blast_radius_diamond_no_duplicates` — fail cosmos-db → exactly 3, no dupes
   - `test_compute_blast_radius_unknown_node` → `ValueError`
   - `test_compute_blast_radius_excludes_failed_node`
   - `test_compute_blast_radius_affected_nodes_are_strings`
@@ -96,7 +108,7 @@ This plan sequences the full implementation across 5 agents (`architect`, `backe
 ### Step 2.1 — RED: C# model tests
 **Agent**: tester
 **Files**: `BlastRadiusUI.Tests/ModelDeserializationTests.cs`, `BlastRadiusUI.Tests/BlastRadiusResultTests.cs`
-**Depends on**: 0.5
+**Depends on**: 0.5 ✅
 - `ModelDeserializationTests` — deserialise snake_case JSON → `BlastRadiusResult` with `JsonSerializerDefaults.Web`
 - `BlastRadiusResultTests` — construct record directly, assert `AffectedNodes` is `List<string>`
 - `GraphDataDeserializationTests` — deserialise `GraphData` with nodes/edges
@@ -120,7 +132,7 @@ This plan sequences the full implementation across 5 agents (`architect`, `backe
 ### Step 3.1 — RED: signalr_utils tests
 **Agent**: tester
 **File**: `BlastRadiusApi/tests/test_signalr_utils.py`
-**Depends on**: 0.1, 0.2
+**Depends on**: 0.1 ✅, 0.2 ✅
 - `test_broadcast_calls_correct_endpoint` — mock `requests.post`
 - `test_broadcast_sends_correct_payload` — target `"blastRadius"`, arguments `[result]`
 - `test_broadcast_swallows_exceptions` — raise in mock → no exception propagated
@@ -168,6 +180,7 @@ This plan sequences the full implementation across 5 agents (`architect`, `backe
 - `blast_result` — load `blast-result.json` → return JSON, or 204 if missing
 - `signalr_negotiate` — call `signalr_utils.negotiate` → return JSON
 - Error handling: malformed JSON → 400, unknown node → 400, missing Blob → 503, SignalR failure → log+continue
+- Add HTTP methods constraints: `blast_radius` POST-only, others GET-only
 - **Invariants**: 3, 4, 5, 7
 - **Verify**: `python -m pytest -v` — ALL GREEN
 
@@ -258,7 +271,7 @@ All GREEN. No skips.
 ## Dependency Graph
 
 ```
-Phase 0 (all parallel) ──┐
+Phase 0 (COMPLETE ✅) ───┐
                           ├── Phase 1 (graph_utils TDD)  ──┐
                           ├── Phase 2 (C# models TDD)      ├── Phase 4 (function_app TDD)
                           ├── Phase 3 (signalr_utils TDD) ─┘         │
@@ -267,18 +280,24 @@ Phase 0 (all parallel) ──┐
                           └──────────────────────────────────── Phase 7 (E2E verify)
 ```
 
-**Critical path**: Phase 0 → Phase 1 → Phase 4 → Phase 6 → Phase 7
+**Critical path**: ~~Phase 0~~ → Phase 1 → Phase 4 → Phase 6 → Phase 7
 **Parallel**: Phase 2 ∥ Phase 1, Phase 3 ∥ Phase 2
+**Next parallel batch**: Phase 1 (Step 1.1), Phase 2 (Step 2.1), Phase 3 (Step 3.1) — all dependencies satisfied
 
 ---
 
 ## Verification Checklist
 
+- [x] Phase 0 foundation scaffolding — all files exist, builds pass
+- [x] Graph fixtures use realistic Azure resource names (invariant 1)
+- [x] `azureType` uses kebab-case icon keys (UI-compatible)
+- [x] `sample_alert_payload` reads from fixture file (no duplication)
+- [x] Edge direction correct in all fixtures (invariant 2)
+- [x] No credentials in any committed file (invariant 4)
 - [ ] `python -m pytest -v` — all Python tests GREEN
 - [ ] `dotnet test` — all C# tests GREEN
 - [ ] `graph_utils.py` has zero `import azure` lines (invariant 6)
 - [ ] `affected_nodes` is `list[str]` / `List<string>` everywhere
 - [ ] Failed node excluded from `affected_nodes`
 - [ ] SignalR broadcast failure does not fail the HTTP response (invariant 7)
-- [ ] No credentials in any committed file (invariant 4)
 - [ ] Local smoke test: alert → 3D graph highlights in browser
