@@ -1,0 +1,13 @@
+{
+  "IsEncrypted": false,
+  "Values": {
+    "FUNCTIONS_WORKER_RUNTIME": "python",
+    "AzureWebJobsStorage": "<your-storage-connection-string>",
+    "AzureSignalRConnectionString": "<your-signalr-connection-string>",
+    "BlobStorageAccountUrl": "<your-blob-storage-account-url>"
+  },
+  "Host": {
+    "CORS": "http://localhost:5178,https://localhost:7206",
+    "CORSCredentials": true
+  }
+}
