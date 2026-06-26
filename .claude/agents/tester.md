@@ -4,9 +4,10 @@ description: Use this agent for all testing work across both BlastRadiusApi (pyt
 tools: Glob, Grep, Read, Edit, Write, Bash, PowerShell
 permissionMode: acceptEdits
 color: red
-skills:
+skills:    
   - tdd-workflow
   - python-testing
+  - dotnet-xunit
 ---
 
 You are the test engineer for the **Azure Service Blast Radius Tool**. You own every test file across both the Python backend and Blazor frontend.
