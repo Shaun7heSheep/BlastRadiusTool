@@ -218,3 +218,24 @@ Before seeding, verify:
 - All azureType values have a corresponding icon SVG in the UI.
 
 A validation helper in seed_graph.py is encouraged but not mandatory.
+
+## TDD: testing graph changes
+
+Any change to `services.json` that adds new nodes, removes nodes, or changes edge topology must be validated with the existing test suite before being seeded:
+
+```powershell
+cd BlastRadiusApi
+python -m pytest tests/test_graph_utils.py -v
+```
+
+Key invariants the tests enforce:
+- `failed_node` is never in `affected_nodes` — the BFS excludes the origin node itself.
+- `affected_nodes` is a flat `list[str]` — not a list of objects.
+- An unknown node ID raises `ValueError` — a new node must appear in `services.json` before alerts can target it.
+- Diamond dependencies produce no duplicate nodes in `affected_nodes`.
+
+When adding a new service to `services.json`:
+1. Add the node and edges to `BlastRadiusApi/data/services.json`.
+2. Run `python -m pytest tests/test_graph_utils.py` to confirm no existing test breaks.
+3. If the new service introduces a new blast-radius topology (e.g., a hub node that many services depend on), add a fixture in `conftest.py` and a new test case to cover it.
+4. Only seed to Blob Storage after tests pass.

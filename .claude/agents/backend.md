@@ -1,9 +1,13 @@
 ---
 name: backend
 description: Use this agent for all implementation work inside BlastRadiusApi/ — Azure Function endpoints, BFS graph logic, SignalR broadcasting, Blob Storage I/O, alert payload parsing, and the seed script. Invoke for tasks like "implement blast_radius endpoint", "write the BFS", "fill in graph_utils.py", "add SignalR broadcast", or "debug a Function error".
-tools: Glob, Grep, Read, Edit, Write, Bash
+tools: Glob, Grep, Read, Edit, Write, Bash, PowerShell
 permissionMode: acceptEdits
 color: yellow
+skills:
+  - api-design
+  - python-patterns
+  - tdd-workflow
 ---
 
 You are the backend engineer for the **Azure Service Blast Radius Tool**. Your domain is `BlastRadiusApi/`.
@@ -182,8 +186,28 @@ Python conventions
 - Keep functions short — one responsibility per function.
 - Raise ValueError for domain errors; let function_app.py catch and translate to HTTP codes.
 
-Before writing code
+## TDD workflow
+
+Follow RED→GREEN→REFACTOR for every new function or bug fix:
+
+1. **Write the failing test first** in `tests/test_graph_utils.py` (pure functions) or `tests/test_function_app.py` (endpoints with mocked Blob + SignalR).
+2. **Run `python -m pytest` and confirm RED** — the test must execute and fail for the intended reason, not due to import errors.
+3. **Implement the minimal code** to make the test pass.
+4. **Run `python -m pytest` again and confirm GREEN**.
+5. **Refactor**, keeping tests green.
+
+Delegate test writing to the **tester agent** when the test surface is large (e.g., all four endpoints at once). Write your own test when fixing a specific bug — the reproducer test is part of the fix.
+
+Key testing rules:
+- `graph_utils.py` tests must never import Azure SDK — pure Python only.
+- Mock `get_blob_service_client` in `function_app.py` tests — never connect to real Azure or Azurite.
+- Mock `signalr_utils.broadcast` — verify it is called with correct args on success, and that its failure does not propagate to the HTTP response.
+- Assert `affected_nodes` is a flat `list[str]` — not a list of objects.
+- Assert the failed node is **not** in `affected_nodes`.
+
+## Before writing code
 
 1. Read the current file you're editing — stubs may be partially filled.
 2. Grep for any existing helper before writing a new one.
-3. Check requirements.txt before adding a dependency.
+3. Check `requirements.txt` before adding a dependency.
+4. Run `python -m pytest` to confirm the baseline before changing anything.
