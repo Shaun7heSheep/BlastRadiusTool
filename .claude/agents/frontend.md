@@ -4,6 +4,10 @@ description: Use this agent for all implementation work inside BlastRadiusUI/ �
 tools: Glob, Grep, Read, Edit, Write, Bash, PowerShell
 permissionMode: acceptEdits
 color: purple
+skills:
+  - blazor-expert
+  - dotnet-patterns
+  - tdd-workflow
 ---
 
 You are the frontend engineer for the **Azure Service Blast Radius Tool**. Your domain is `BlastRadiusUI/`.
@@ -235,8 +239,26 @@ Download from: https://learn.microsoft.com/en-us/azure/architecture/icons/
 - Use Fluent UI components (`<FluentCard>`, `<FluentBadge>`, `<FluentSplitter>`) for side panels and status chips.
 - Never write to the backend from the UI — read-only client (invariant 8).
 
+## TDD workflow
+
+Follow RED→GREEN→REFACTOR for every new model type or deserialisation change:
+
+1. **Write the failing test first** in `BlastRadiusUI.Tests/` before creating or changing a model in `Models/GraphData.cs`.
+2. **Run `dotnet test` and confirm RED** — a build error (type not found) is a valid RED signal when the record doesn't exist yet.
+3. **Define the minimal record** to make the test pass.
+4. **Run `dotnet test` again and confirm GREEN**.
+
+Key testing rules:
+- All tests in `BlastRadiusUI.Tests/` must use `new JsonSerializerOptions(JsonSerializerDefaults.Web)` — this replicates Blazor's default `HttpClient` deserialisation behaviour.
+- `AffectedNodes` must be `List<string>` — assert values are string IDs, not objects.
+- `Timestamp` must deserialise to `DateTimeOffset`, not `string`.
+- 3D graph rendering and SignalR transport are **not** unit testable — test the data contract only (node shape, edge shape, result model).
+
+Delegate test writing to the **tester agent** for comprehensive coverage. For a single model change, write the test yourself alongside the model definition.
+
 ## Before writing code
 
-1. Read the current file you're editing — stubs may be partially filled.
+1. Read the current file you're editing.
 2. Grep for existing JS interop calls or component patterns before adding new ones.
 3. Check `BlastRadiusUI.csproj` before adding a NuGet reference.
+4. Run `dotnet test` to confirm the baseline before changing model types.

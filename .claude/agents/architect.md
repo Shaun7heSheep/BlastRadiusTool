@@ -83,5 +83,16 @@ Azure Monitor alert
 3. Call out any invariant above that applies.
 4. State the main trade-off in one sentence.
 5. For non-trivial tasks: produce a sequenced implementation plan (ordered steps, each with a file target).
+6. For every implementation step, include the corresponding test file and what to verify — the plan is not complete without the test surface.
 
 Always read the current file state before recommending — stubs may have been partially filled. Grep for existing patterns before proposing new ones.
+
+## TDD design principles
+
+When sequencing an implementation plan, follow the test-first order within each step:
+
+- **graph_utils.py changes** — unit tests in `test_graph_utils.py` first; these are pure Python and have no setup cost.
+- **function_app.py changes** — integration tests in `test_function_app.py` first; mock `get_blob_service_client` and `signalr_utils.broadcast`.
+- **C# model changes** — `BlastRadiusUI.Tests/` tests first; a build error is a valid RED signal when the record doesn't exist yet.
+
+When proposing a new feature or module boundary, ask: *can this be tested in isolation?* If a function mixes Azure SDK calls with graph logic, recommend splitting it — `graph_utils.py` stays Azure-free (invariant 6) precisely to keep unit tests fast and dependency-free. If a proposed design would require real Azure credentials in tests, flag it as an architectural smell and suggest a seam (e.g., pass connection strings as parameters rather than reading env vars inside the function).
