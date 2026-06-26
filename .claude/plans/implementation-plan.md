@@ -2,7 +2,12 @@
 
 ## Context
 
-Phase 0 foundation is **complete and validated**. All scaffolding is in place. Four Azure Function endpoints are registered as "Hello, name" stubs. `graph_utils.py`, `signalr_utils.py`, and `seed_graph.py` are empty stubs ready for implementation. The Blazor frontend is a "Hello, world!" stub with all NuGet packages installed. Test infrastructure (pytest + xUnit v3) is configured. Graph data (`services.json`) and alert fixture are authored and validated.
+Phase 0 foundation is **complete and validated**. Phases 1–3 RED (test definition) layer now **complete and passing** — commit `d2f4aaf`. All 36 RED-phase tests written and fail against empty stubs, defining contracts:
+- Phase 1: 17 graph_utils tests
+- Phase 2: 11 C# model deserialization tests  
+- Phase 3: 8 SignalR utils tests
+
+Next: Implement the GREEN-phase (Phases 1.2, 2.2, 3.2) to make all tests pass. Four Azure Function endpoints remain as stubs. Blazor frontend remains "Hello, world!" stub.
 
 This plan sequences the full implementation across 5 agents (`architect`, `backend`, `frontend`, `graph-data`, `tester`) using TDD (RED-GREEN-REFACTOR) and respecting the 9 non-negotiable invariants defined in the architect agent.
 
@@ -68,13 +73,14 @@ This plan sequences the full implementation across 5 agents (`architect`, `backe
 
 ---
 
-## Phase 1 — Pure Graph Engine (TDD, zero Azure dependencies) — NEXT UP
+## Phase 1 — Pure Graph Engine (TDD, zero Azure dependencies)
 
-### Step 1.1 — RED: graph_utils unit tests
+### Step 1.1 — RED: graph_utils unit tests ✅
 **Agent**: tester
 **File**: `BlastRadiusApi/tests/test_graph_utils.py`
 **Depends on**: 0.1 ✅, 0.2 ✅
-- Write all tests before implementation:
+**Status**: COMPLETE (commit d2f4aaf) — 17 tests written, all RED against empty stub
+- Contracts defined for all functions:
   - `test_load_graph_valid_json` — returns dict with `nodes`/`edges`
   - `test_load_graph_malformed_json` — raises `json.JSONDecodeError`
   - `test_build_nx_graph_node_count` / `_edge_count` / `_edge_direction`
@@ -88,66 +94,77 @@ This plan sequences the full implementation across 5 agents (`architect`, `backe
   - `test_compute_blast_radius_affected_edges`
   - `test_serialise_result_valid_json` / `_has_timestamp`
   - `test_single_node_no_edges`
-- **Verify**: `python -m pytest tests/test_graph_utils.py -v` — all RED
+- **Run**: `python -m pytest tests/test_graph_utils.py -v` — 17 RED
 
-### Step 1.2 — GREEN: Implement graph_utils.py
+### Step 1.2 — GREEN: Implement graph_utils.py — NEXT UP
 **Agent**: backend
 **File**: `BlastRadiusApi/graph_utils.py`
-**Depends on**: 1.1
+**Depends on**: 1.1 ✅
+**Status**: Pending
 - `load_graph(blob_content: str) -> dict` — `json.loads`
 - `build_nx_graph(graph_data: dict) -> nx.DiGraph` — add nodes + edges
 - `compute_blast_radius(graph_data: dict, failed_node_id: str) -> dict` — build graph, validate node, `G.reverse()`, BFS via `nx.bfs_tree()`, exclude root, collect affected edges
 - `serialise_result(result: dict) -> str` — add UTC ISO 8601 `timestamp`, `json.dumps`
 - **Invariants**: 2 (edge direction), 6 (no Azure SDK imports)
-- **Verify**: `python -m pytest tests/test_graph_utils.py -v` — all GREEN
+- **Target**: `python -m pytest tests/test_graph_utils.py -v` — all GREEN
 
 ---
 
 ## Phase 2 — C# Model Types (TDD, parallel with Phase 1)
 
-### Step 2.1 — RED: C# model tests
+### Step 2.1 — RED: C# model tests ✅
 **Agent**: tester
 **Files**: `BlastRadiusUI.Tests/ModelDeserializationTests.cs`, `BlastRadiusUI.Tests/BlastRadiusResultTests.cs`
 **Depends on**: 0.5 ✅
-- `ModelDeserializationTests` — deserialise snake_case JSON → `BlastRadiusResult` with `JsonSerializerDefaults.Web`
-- `BlastRadiusResultTests` — construct record directly, assert `AffectedNodes` is `List<string>`
-- `GraphDataDeserializationTests` — deserialise `GraphData` with nodes/edges
-- **Verify**: `dotnet test` — RED (build error: namespace not found)
+**Status**: COMPLETE (commit d2f4aaf) — 11 tests written, all RED against missing Models namespace
+- Contracts defined:
+  - `ModelDeserializationTests` — deserialise snake_case JSON → `BlastRadiusResult` with `JsonSerializerDefaults.Web`
+  - `BlastRadiusResultTests` — construct record directly, assert `AffectedNodes` is `List<string>`
+  - `GraphDataDeserializationTests` — deserialise `GraphData` with nodes/edges
+  - `SignalRNegotiateResponse` deserialization
+- **Run**: `dotnet test` — 11 RED (build error: namespace not found)
 
-### Step 2.2 — GREEN: Create Models/GraphData.cs
+### Step 2.2 — GREEN: Create Models/GraphData.cs — NEXT UP
 **Agent**: frontend
 **File**: `BlastRadiusUI/Models/GraphData.cs`
-**Depends on**: 2.1
+**Depends on**: 2.1 ✅
+**Status**: Pending
 - `record GraphData(List<ServiceNode> Nodes, List<DependencyEdge> Edges)`
 - `record ServiceNode(string Id, string Label, string AzureType, string App, string Criticality)`
 - `record DependencyEdge(string Source, string Target)`
 - `record BlastRadiusResult(string FailedNode, List<string> AffectedNodes, List<DependencyEdge> AffectedEdges, DateTimeOffset Timestamp)`
 - `record SignalRNegotiateResponse(string Url, string AccessToken)`
-- **Verify**: `dotnet test` — GREEN
+- **Target**: `dotnet test` — GREEN
 
 ---
 
 ## Phase 3 — SignalR Utilities (parallel with Phase 2)
 
-### Step 3.1 — RED: signalr_utils tests
+### Step 3.1 — RED: signalr_utils tests ✅
 **Agent**: tester
 **File**: `BlastRadiusApi/tests/test_signalr_utils.py`
 **Depends on**: 0.1 ✅, 0.2 ✅
-- `test_broadcast_calls_correct_endpoint` — mock `requests.post`
-- `test_broadcast_sends_correct_payload` — target `"blastRadius"`, arguments `[result]`
-- `test_broadcast_swallows_exceptions` — raise in mock → no exception propagated
-- `test_negotiate_returns_url_and_token`
-- `test_negotiate_url_format`
-- **Verify**: `python -m pytest tests/test_signalr_utils.py -v` — RED
+**Status**: COMPLETE (commit d2f4aaf) — 8 tests written, all RED against empty stub
+- Contracts defined:
+  - `test_broadcast_calls_correct_endpoint` — mock `requests.post`
+  - `test_broadcast_sends_correct_payload` — target `"blastRadius"`, arguments `[result]`
+  - `test_broadcast_sends_auth_header` — Bearer token in Authorization header
+  - `test_broadcast_swallows_connection_errors` — fire-and-forget (invariant 7)
+  - `test_broadcast_swallows_all_exception_types` — no exception propagated
+  - `test_negotiate_returns_url_and_token`
+  - `test_negotiate_url_format` — includes endpoint and hub name
+  - `test_negotiate_token_is_jwt` — three dot-separated parts
+- **Run**: `python -m pytest tests/test_signalr_utils.py -v` — 8 RED
 
-### Step 3.2 — GREEN: Implement signalr_utils.py
+### Step 3.2 — GREEN: Implement signalr_utils.py — NEXT UP
 **Agent**: backend
 **File**: `BlastRadiusApi/signalr_utils.py`
-**Depends on**: 3.1
+**Depends on**: 3.1 ✅
+**Status**: Pending
 - `broadcast(connection_string, hub_name, result)` — parse conn string, sign JWT, POST to REST API, try/except+log
 - `negotiate(connection_string, hub_name, user_id=None)` — generate short-lived JWT, return `{url, accessToken}`
 - **Invariant**: 7 (fire-and-forget)
-- **Verify**: `python -m pytest tests/test_signalr_utils.py -v` — GREEN
+- **Target**: `python -m pytest tests/test_signalr_utils.py -v` — GREEN
 
 ---
 
@@ -288,16 +305,27 @@ Phase 0 (COMPLETE ✅) ───┐
 
 ## Verification Checklist
 
+### Phase 0 & RED (Phases 1–3) — COMPLETE ✅
 - [x] Phase 0 foundation scaffolding — all files exist, builds pass
 - [x] Graph fixtures use realistic Azure resource names (invariant 1)
 - [x] `azureType` uses kebab-case icon keys (UI-compatible)
 - [x] `sample_alert_payload` reads from fixture file (no duplication)
 - [x] Edge direction correct in all fixtures (invariant 2)
 - [x] No credentials in any committed file (invariant 4)
-- [ ] `python -m pytest -v` — all Python tests GREEN
-- [ ] `dotnet test` — all C# tests GREEN
+- [x] Phase 1 RED: 17 graph_utils tests written (all RED) — commit d2f4aaf
+- [x] Phase 2 RED: 11 C# model tests written (all RED) — commit d2f4aaf
+- [x] Phase 3 RED: 8 signalr_utils tests written (all RED) — commit d2f4aaf
+
+### GREEN Phase (Phases 1.2–3.2) — IN PROGRESS
+- [ ] `python -m pytest -v` — all Python tests GREEN (after 1.2 + 3.2)
+- [ ] `dotnet test` — all C# tests GREEN (after 2.2)
 - [ ] `graph_utils.py` has zero `import azure` lines (invariant 6)
 - [ ] `affected_nodes` is `list[str]` / `List<string>` everywhere
 - [ ] Failed node excluded from `affected_nodes`
 - [ ] SignalR broadcast failure does not fail the HTTP response (invariant 7)
-- [ ] Local smoke test: alert → 3D graph highlights in browser
+
+### Integration & E2E (Phases 4–7) — PENDING
+- [ ] Phase 4: function_app GREEN — all 8 integration tests pass
+- [ ] Phase 5: seed_graph.py uploads to Blob Storage
+- [ ] Phase 6: Blazor Home.razor renders 3D graph + SignalR client
+- [ ] Phase 7 E2E: alert → 3D graph highlights in browser
