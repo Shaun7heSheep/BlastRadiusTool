@@ -48,14 +48,14 @@ dotnet run --project BlastRadiusUI
 ### Tests
 
 ```powershell
-# Run all tests
-dotnet test
+# Run all tests with Microsoft Testing Platform
+dotnet run --project BlastRadiusUI.Tests
 
 # Run a single test
-dotnet test --filter "FullyQualifiedName~TestName"
+dotnet run --project BlastRadiusUI.Tests -- --filter "FullyQualifiedName~TestName"
 
 # Run with coverage
-dotnet test --collect "Code Coverage"
+dotnet run --project BlastRadiusUI.Tests -- --coverage --coverage-output-format cobertura
 ```
 
 ## Architecture
