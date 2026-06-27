@@ -2,12 +2,13 @@
 
 ## Context
 
-Phase 0 foundation is **complete and validated**. Phases 1–3 RED+GREEN are **complete and passing** — 36/36 tests GREEN.
+Phase 0 foundation is **complete and validated**. Phases 1–4 RED+GREEN are **complete and passing** — 45/45 tests GREEN.
 - Phase 1: 17/17 graph_utils tests ✅
 - Phase 2: 11/11 C# model deserialization tests ✅
 - Phase 3: 8/8 SignalR utils tests ✅
+- Phase 4: 9/9 function_app integration tests ✅
 
-**Next**: Phase 4 — Azure Function endpoint integration tests (4.1 RED, then 4.2 GREEN). Four Azure Function endpoints remain as stubs. Blazor frontend remains "Hello, world!" stub.
+**Next**: Phase 5 — seed script + Static Web App config, then Phase 6 — Blazor frontend. Blazor frontend remains "Hello, world!" stub.
 
 **Note**: `Microsoft.Testing.Extensions.CodeCoverage 18.8.0` is incompatible with `Microsoft.Testing.Platform 2.2.3.0` (shipped by xUnit v3 3.2.2) — removed from `BlastRadiusUI.Tests.csproj`. Re-add coverage with a MTP 2.x-compatible package when needed.
 
@@ -174,36 +175,28 @@ This plan sequences the full implementation across 5 agents (`architect`, `backe
 
 ## Phase 4 — Azure Function Endpoints (integration tests, mocked I/O)
 
-### Step 4.1 — RED: function_app integration tests
+### Step 4.1 — RED: function_app integration tests ✅
 **Agent**: tester
 **File**: `BlastRadiusApi/tests/test_function_app.py`
-**Depends on**: 1.2, 3.2
-- Mock `get_blob_service_client` and `signalr_utils.broadcast`
-- Tests:
-  - `test_blast_radius_valid_alert` → 200 + correct JSON
-  - `test_blast_radius_malformed_json` → 400
-  - `test_blast_radius_unknown_node` → 400 with error message
-  - `test_blast_radius_signalr_failure_still_200` → 200 despite SignalR error
-  - `test_blast_radius_writes_blob` → upload_blob called
-  - `test_graph_returns_services_json` → 200
-  - `test_blast_result_returns_latest` → 200
-  - `test_blast_result_returns_204_when_missing` → 204
-  - `test_signalr_negotiate_returns_token` → 200 with url/accessToken
-- **Verify**: `python -m pytest tests/test_function_app.py -v` — RED
+**Depends on**: 1.2 ✅, 3.2 ✅
+**Status**: COMPLETE (commit 5e3a0ba) — 9 tests written, all RED against Hello World stub
+- `create=True` patches allow mocking before `get_blob_service_client` and `signalr_utils` exist in module
+- `patch("function_app.signalr_utils")` replaces whole module reference for full broadcast/negotiate control
+- Test 4 dual assertion (status 200 AND `"failedNode"` in body) ensures RED against stub + GREEN only with real fire-and-forget path
+- Test 5 asserts `upload_blob` called once with `overwrite=True`
 
-### Step 4.2 — GREEN: Implement function_app.py
+### Step 4.2 — GREEN: Implement function_app.py ✅
 **Agent**: backend
 **File**: `BlastRadiusApi/function_app.py`
-**Depends on**: 4.1
-- Add `get_blob_service_client()` — `DefaultAzureCredential` on Azure, connection string locally
-- `blast_radius` — parse alert → extract node ID → load Blob → `graph_utils.compute_blast_radius` → write Blob → `signalr_utils.broadcast` (try/except) → 200
-- `graph` — load `services.json` → return JSON
-- `blast_result` — load `blast-result.json` → return JSON, or 204 if missing
-- `signalr_negotiate` — call `signalr_utils.negotiate` → return JSON
-- Error handling: malformed JSON → 400, unknown node → 400, missing Blob → 503, SignalR failure → log+continue
-- Add HTTP methods constraints: `blast_radius` POST-only, others GET-only
-- **Invariants**: 3, 4, 5, 7
-- **Verify**: `python -m pytest -v` — ALL GREEN
+**Depends on**: 4.1 ✅
+**Status**: COMPLETE — 9/9 GREEN, full suite 34/34 GREEN
+- `get_blob_service_client()` — `BlobStorageAccountUrl` + `DefaultAzureCredential` on Azure; `AzureWebJobsStorage` conn string locally
+- `blast_radius` POST — parse alert → `alertTargetIDs[0].split("/")[-1]` → load `services.json` → BFS → write `blast-result.json` (`overwrite=True`) → SignalR try/except → 200
+- `graph` GET — stream `services.json` bytes as `application/json`
+- `blast_result` GET — stream `blast-result.json` or 204 on `ResourceNotFoundError`
+- `signalr_negotiate` GET — delegate to `signalr_utils.negotiate` → JSON
+- **Invariants satisfied**: 1 (node ID from last resource path segment), 3 (Blob only), 4 (no secrets), 5 (stateless), 6 (graph_utils Azure-free), 7 (fire-and-forget)
+- **Verified**: `python -m pytest -v` — 34/34 GREEN
 
 ---
 
@@ -293,17 +286,17 @@ All GREEN. No skips.
 
 ```
 Phase 0 (COMPLETE ✅) ───┐
-                          ├── Phase 1 (graph_utils TDD)  ──┐
-                          ├── Phase 2 (C# models TDD)      ├── Phase 4 (function_app TDD)
-                          ├── Phase 3 (signalr_utils TDD) ─┘         │
+                          ├── Phase 1 (graph_utils TDD) ✅ ──┐
+                          ├── Phase 2 (C# models TDD) ✅      ├── Phase 4 (function_app TDD) ✅
+                          ├── Phase 3 (signalr_utils TDD) ✅ ─┘         │
                           │                                    Phase 5 (seed + SWA config)
                           │                                    Phase 6 (Blazor UI)
                           └──────────────────────────────────── Phase 7 (E2E verify)
 ```
 
-**Critical path**: ~~Phase 0~~ → Phase 1 → Phase 4 → Phase 6 → Phase 7
-**Parallel**: Phase 2 ∥ Phase 1, Phase 3 ∥ Phase 2
-**Next parallel batch**: Phase 1 (Step 1.1), Phase 2 (Step 2.1), Phase 3 (Step 3.1) — all dependencies satisfied
+**Critical path**: ~~Phase 0~~ → ~~Phase 1~~ → ~~Phase 4~~ → Phase 6 → Phase 7
+**Parallel**: ~~Phase 2 ∥ Phase 1~~, ~~Phase 3 ∥ Phase 2~~
+**Next**: Phase 5 (seed_graph.py + staticwebapp.config.json) ∥ Phase 6 (Blazor frontend)
 
 ---
 
@@ -320,16 +313,24 @@ Phase 0 (COMPLETE ✅) ───┐
 - [x] Phase 2 RED: 11 C# model tests written (all RED) — commit d2f4aaf
 - [x] Phase 3 RED: 8 signalr_utils tests written (all RED) — commit d2f4aaf
 
-### GREEN Phase (Phases 1.2–3.2) — IN PROGRESS
-- [ ] `python -m pytest -v` — all Python tests GREEN (after 1.2 + 3.2)
-- [ ] `dotnet run --project BlastRadiusUI.Tests` — all C# tests GREEN (after 2.2)
-- [ ] `graph_utils.py` has zero `import azure` lines (invariant 6)
-- [ ] `affected_nodes` is `list[str]` / `List<string>` everywhere
-- [ ] Failed node excluded from `affected_nodes`
-- [ ] SignalR broadcast failure does not fail the HTTP response (invariant 7)
+### GREEN Phase (Phases 1.2–3.2) — COMPLETE ✅
+- [x] `python -m pytest -v` — all Python tests GREEN (after 1.2 + 3.2)
+- [x] `dotnet run --project BlastRadiusUI.Tests` — all C# tests GREEN (after 2.2)
+- [x] `graph_utils.py` has zero `import azure` lines (invariant 6)
+- [x] `affected_nodes` is `list[str]` / `List<string>` everywhere
+- [x] Failed node excluded from `affected_nodes`
+- [x] SignalR broadcast failure does not fail the HTTP response (invariant 7)
 
-### Integration & E2E (Phases 4–7) — PENDING
-- [ ] Phase 4: function_app GREEN — all 8 integration tests pass
+### Integration (Phase 4) — COMPLETE ✅
+- [x] Phase 4.1: 9 function_app RED tests written — commit 5e3a0ba
+- [x] Phase 4.2: function_app GREEN — all 9 integration tests pass, full suite 34/34 GREEN
+- [x] `blast_radius` POST-only, `graph`/`blast_result`/`signalr_negotiate` GET-only
+- [x] Node ID extracted from last segment of `alertTargetIDs[0]` (invariant 1)
+- [x] `blast-result.json` written with `overwrite=True` (invariant 3)
+- [x] `get_blob_service_client()` defined at module level (patchable in tests)
+- [x] SignalR broadcast in try/except — never propagates (invariant 7)
+
+### E2E (Phases 5–7) — PENDING
 - [ ] Phase 5: seed_graph.py uploads to Blob Storage
 - [ ] Phase 6: Blazor Home.razor renders 3D graph + SignalR client
 - [ ] Phase 7 E2E: alert → 3D graph highlights in browser
