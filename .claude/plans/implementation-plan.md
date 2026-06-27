@@ -2,13 +2,14 @@
 
 ## Context
 
-Phase 0 foundation is **complete and validated**. Phases 1–4 RED+GREEN are **complete and passing** — 45/45 tests GREEN.
+Phase 0 foundation is **complete and validated**. Phases 1–5 are **complete and passing** — 45/45 tests GREEN.
 - Phase 1: 17/17 graph_utils tests ✅
 - Phase 2: 11/11 C# model deserialization tests ✅
 - Phase 3: 8/8 SignalR utils tests ✅
 - Phase 4: 9/9 function_app integration tests ✅
+- Phase 5: seed script + SWA config ✅ (no automated tests — manual verification against Azurite)
 
-**Next**: Phase 5 — seed script + Static Web App config, then Phase 6 — Blazor frontend. Blazor frontend remains "Hello, world!" stub.
+**Next**: Phase 6 — Blazor frontend. Blazor frontend remains "Hello, world!" stub.
 
 **Note**: `Microsoft.Testing.Extensions.CodeCoverage 18.8.0` is incompatible with `Microsoft.Testing.Platform 2.2.3.0` (shipped by xUnit v3 3.2.2) — removed from `BlastRadiusUI.Tests.csproj`. Re-add coverage with a MTP 2.x-compatible package when needed.
 
@@ -200,22 +201,31 @@ This plan sequences the full implementation across 5 agents (`architect`, `backe
 
 ---
 
-## Phase 5 — Seed Script + Static Web App Config
+## Phase 5 — Seed Script + Static Web App Config (COMPLETE ✅)
 
-### Step 5.1 — Implement seed_graph.py
+### Step 5.1 — Implement seed_graph.py ✅
 **Agent**: graph-data
 **File**: `BlastRadiusApi/scripts/seed_graph.py`
-**Depends on**: 4.2
-- Read `data/services.json`, validate (edge refs exist, unique IDs)
-- Upload to Blob `graph-data/services.json`
-- Auth: `BlobStorageAccountUrl` + `DefaultAzureCredential`, fallback to `AzureWebJobsStorage`
-- **Verify**: Manual — run against Azurite
+**Depends on**: 4.2 ✅
+**Status**: COMPLETE (commit 1ea8e86)
+- `validate_graph(data)` — checks unique node IDs + no dangling edge refs; returns list of error strings
+- `get_blob_service_client()` — mirrors `function_app.py` auth pattern: `BlobStorageAccountUrl` + `DefaultAzureCredential` on Azure, `AzureWebJobsStorage` connection string fallback for Azurite
+- `seed(graph_path)` — read → parse → validate → create container if needed → `upload_blob(overwrite=True)` → print success with byte count
+- `__main__` guard — resolves `data/services.json` via `pathlib.Path` relative to script location
+- **Invariant satisfied**: 4 (no credentials in code)
+- **Verified**: Manual — `validate_graph` tested against real `services.json` (0 errors) and intentionally bad data (duplicate IDs + dangling edges correctly caught)
 
-### Step 5.2 — staticwebapp.config.json
+### Step 5.2 — staticwebapp.config.json ✅
 **Agent**: frontend
 **File**: `staticwebapp.config.json`
-**Depends on**: 2.2
-- Entra ID auth, route fallback, API proxy
+**Depends on**: 2.2 ✅
+**Status**: COMPLETE (commit 1ea8e86)
+- **Routes**: GitHub/Twitter auth blocked (404), `/api/*` open for Function key auth, `/*` requires `authenticated` role
+- **Navigation fallback**: `index.html` rewrite for Blazor client-side routing, static assets excluded
+- **Auth**: Entra ID with placeholder `{TENANT_ID}` and `AAD_CLIENT_ID` setting reference
+- **Response overrides**: 401 → redirect to `/.auth/login/aad`, 403 → serve `index.html`
+- **Security headers**: `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, strict referrer, restrictive permissions policy
+- **Platform**: `apiRuntime: python:3.11`
 
 ---
 
@@ -289,14 +299,14 @@ Phase 0 (COMPLETE ✅) ───┐
                           ├── Phase 1 (graph_utils TDD) ✅ ──┐
                           ├── Phase 2 (C# models TDD) ✅      ├── Phase 4 (function_app TDD) ✅
                           ├── Phase 3 (signalr_utils TDD) ✅ ─┘         │
-                          │                                    Phase 5 (seed + SWA config)
+                          │                                    Phase 5 (seed + SWA config) ✅
                           │                                    Phase 6 (Blazor UI)
                           └──────────────────────────────────── Phase 7 (E2E verify)
 ```
 
 **Critical path**: ~~Phase 0~~ → ~~Phase 1~~ → ~~Phase 4~~ → Phase 6 → Phase 7
-**Parallel**: ~~Phase 2 ∥ Phase 1~~, ~~Phase 3 ∥ Phase 2~~
-**Next**: Phase 5 (seed_graph.py + staticwebapp.config.json) ∥ Phase 6 (Blazor frontend)
+**Parallel**: ~~Phase 2 ∥ Phase 1~~, ~~Phase 3 ∥ Phase 2~~, ~~Phase 5 ∥ Phase 6~~
+**Next**: Phase 6 (Blazor frontend)
 
 ---
 
@@ -330,7 +340,15 @@ Phase 0 (COMPLETE ✅) ───┐
 - [x] `get_blob_service_client()` defined at module level (patchable in tests)
 - [x] SignalR broadcast in try/except — never propagates (invariant 7)
 
-### E2E (Phases 5–7) — PENDING
-- [ ] Phase 5: seed_graph.py uploads to Blob Storage
+### Phase 5 (Seed + SWA Config) — COMPLETE ✅
+- [x] `seed_graph.py` validates graph (unique IDs, no dangling edges) and uploads to Blob Storage
+- [x] Auth pattern mirrors `function_app.py` (`BlobStorageAccountUrl` + `DefaultAzureCredential`, fallback to `AzureWebJobsStorage`)
+- [x] Container auto-created if missing, `overwrite=True` for idempotent re-runs
+- [x] `staticwebapp.config.json` enforces Entra ID auth, blocks GitHub/Twitter providers
+- [x] Navigation fallback rewrites to `index.html` for Blazor client-side routing
+- [x] Security headers: `nosniff`, `DENY` framing, strict referrer, restrictive permissions
+- [x] No credentials in code (invariant 4)
+
+### E2E (Phases 6–7) — PENDING
 - [ ] Phase 6: Blazor Home.razor renders 3D graph + SignalR client
 - [ ] Phase 7 E2E: alert → 3D graph highlights in browser
