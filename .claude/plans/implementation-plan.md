@@ -2,14 +2,15 @@
 
 ## Context
 
-Phase 0 foundation is **complete and validated**. Phases 1–5 are **complete and passing** — 45/45 tests GREEN.
+Phase 0 foundation is **complete and validated**. Phases 1–6 are **complete and passing** — 45/45 tests GREEN. All code implemented.
 - Phase 1: 17/17 graph_utils tests ✅
 - Phase 2: 11/11 C# model deserialization tests ✅
 - Phase 3: 8/8 SignalR utils tests ✅
 - Phase 4: 9/9 function_app integration tests ✅
 - Phase 5: seed script + SWA config ✅ (no automated tests — manual verification against Azurite)
+- Phase 6: Blazor frontend ✅ (3D graph, SignalR client, Fluent UI dark theme)
 
-**Next**: Phase 6 — Blazor frontend. Blazor frontend remains "Hello, world!" stub.
+**Next**: Phase 7 — End-to-end verification (local smoke test with Azurite).
 
 **Note**: `Microsoft.Testing.Extensions.CodeCoverage 18.8.0` is incompatible with `Microsoft.Testing.Platform 2.2.3.0` (shipped by xUnit v3 3.2.2) — removed from `BlastRadiusUI.Tests.csproj`. Re-add coverage with a MTP 2.x-compatible package when needed.
 
@@ -72,8 +73,9 @@ This plan sequences the full implementation across 5 agents (`architect`, `backe
 - **Verified**: `dotnet build` — both projects succeed, 0 warnings, 0 errors
 
 ### Implementation notes carried forward
-- `function_app.py`: 4 routes registered but HTTP methods not yet constrained (all accept GET+POST) — fix in Phase 4
-- `Program.cs`: `#if DEBUG` localhost:7071 HttpClient pattern not yet present — add in Phase 6
+- ~~`function_app.py`: 4 routes registered but HTTP methods not yet constrained — **fixed in Phase 4** (POST for blast_radius, GET for others)~~
+- ~~`Program.cs`: `#if DEBUG` localhost:7071 HttpClient pattern not yet present — **fixed in Phase 6**~~
+- All carried-forward items resolved ✅
 
 ---
 
@@ -229,46 +231,61 @@ This plan sequences the full implementation across 5 agents (`architect`, `backe
 
 ---
 
-## Phase 6 — Blazor Frontend
+## Phase 6 — Blazor Frontend (COMPLETE ✅)
 
-### Step 6.1 — Program.cs + index.html + _Imports.razor
+### Step 6.1 — Program.cs + index.html + _Imports.razor ✅
 **Agent**: frontend
-**Depends on**: 2.2
-- `Program.cs` — `#if DEBUG` HttpClient to `http://localhost:7071`, register Fluent UI services
-- `index.html` — add `<script src="https://unpkg.com/3d-force-graph"></script>`, Fluent UI CSS
-- `_Imports.razor` — add `@using BlastRadiusUI.Models`, `@using Microsoft.FluentUI.AspNetCore.Components`
+**Depends on**: 2.2 ✅
+**Status**: COMPLETE (commit d08e02a)
+- `Program.cs` — `#if DEBUG` HttpClient to `http://localhost:7071`, `AddFluentUIComponents()` registered
+- `index.html` — title "Blast Radius Tool", Three.js + 3d-force-graph CDN scripts, Fluent UI reboot CSS, scoped CSS enabled
+- `_Imports.razor` — added `@using BlastRadiusUI.Models`, `@using Microsoft.FluentUI.AspNetCore.Components`
 
-### Step 6.2 — graph.js (JS interop module)
+### Step 6.2 — graph.js (JS interop module) ✅
 **Agent**: frontend
 **File**: `BlastRadiusUI/wwwroot/js/graph.js`
-**Depends on**: 6.1
-- `export function initGraph(elementId, graphData)` — 3d-force-graph, Azure icon sprites, edge styling
-- `export function highlightBlastRadius(result)` — amber (failed), red (affected), blue (healthy)
-- `export function resetHighlights()` — all blue
-- `export function disposeGraph()` — WebGL cleanup
+**Depends on**: 6.1 ✅
+**Status**: COMPLETE (commit d08e02a) — 187 lines
+- `initGraph(elementId, graphData)` — ForceGraph3D (global UMD, not ES import), 8-colour azureType palette, directional arrows + animated particles, resize handler, dark background `#1a1a2e`
+- `highlightBlastRadius(result)` — amber `#FF8C00` (failed), red `#FF4444` (affected), Set-based O(1) lookups, handles force-sim source/target object refs
+- `resetHighlights()` — restore azureType colours + default link styling
+- `disposeGraph()` — remove resize listener, call `_destructor()`, null module state
+- **Invariant satisfied**: 9 (only non-Microsoft library)
 
-### Step 6.3 — Home.razor
+### Step 6.3 — Home.razor ✅
 **Agent**: frontend
 **File**: `BlastRadiusUI/Pages/Home.razor`
-**Depends on**: 6.1, 6.2
-- `@implements IAsyncDisposable`
-- `OnInitializedAsync` — GET `/api/graph`, GET `/api/blast_result`, SignalR negotiate + connect
-- `OnAfterRenderAsync(firstRender)` — import `graph.js`, `initGraph`, apply existing blast result
-- `blastRadius` handler — update state, `highlightBlastRadius`, `StateHasChanged`
-- Razor markup — Fluent UI header, LIVE badge, alert banner, `<div id="graph-container">`, stats footer
-- `DisposeAsync` — dispose hub + JS module
-- **Invariant**: 8 (read-only)
+**Depends on**: 6.1 ✅, 6.2 ✅
+**Status**: COMPLETE (commit d08e02a) — 185 lines
+- `@implements IAsyncDisposable`, `@inject HttpClient`, `@inject IJSRuntime`
+- `OnInitializedAsync` — GET `/api/graph` → `GraphData`, GET `/api/blast_result` → `BlastRadiusResult` (handles 204), SignalR negotiate + connect with `WithAutomaticReconnect()`
+- `OnAfterRenderAsync(firstRender)` — import `graph.js` module, `initGraph`, apply existing blast result
+- `On<BlastRadiusResult>("blastRadius", ...)` handler — update state, `InvokeAsync(StateHasChanged)`, forward to JS `highlightBlastRadius`
+- Razor markup — Fluent UI header with `FluentBadge` LIVE/DISCONNECTED, alert banner (amber failed node, red affected count), full-viewport `#graph-container`, stats footer (nodes, edges, affected)
+- `DisposeAsync` — dispose `HubConnection` + `IJSObjectReference`, catch `JSDisconnectedException`
+- **Invariants satisfied**: 8 (read-only — only GET requests), 7 spirit (SignalR failure non-fatal)
 
-### Step 6.4 — Azure Architecture Icons
+### Step 6.4 — Azure Architecture Icons ✅
 **Agent**: frontend
 **Files**: `BlastRadiusUI/wwwroot/icons/*.svg`
-- Download SVGs for: `service-bus`, `function-app`, `sql-database`, `cosmos-db`, `storage-account`, `key-vault`, `api-management`, `app-service`, `application-insights`, `event-hub`
+**Status**: COMPLETE (commit d08e02a) — 8 SVGs created
+- `service-bus.svg` — purple (#6C3483), connected nodes
+- `function-app.svg` — amber (#FFC107), lightning bolt
+- `cosmos-db.svg` — blue (#0078D4), atom/globe
+- `sql-database.svg` — blue (#0078D4), cylinder
+- `api-management.svg` — purple (#68217A), gateway
+- `application-insights.svg` — purple (#68217A), magnifying glass
+- `key-vault.svg` — gold (#FFB900), key shape
+- `storage-account.svg` — blue (#0078D4), grid
+- All 64x64 viewBox, simple geometric shapes, no text, under 500 bytes each
 
-### Step 6.5 — MainLayout + styling
+### Step 6.5 — MainLayout + styling ✅
 **Agent**: frontend
 **Files**: `BlastRadiusUI/Layout/MainLayout.razor`, `BlastRadiusUI/wwwroot/css/app.css`
-- `MainLayout.razor` — Fluent UI dark theme wrapper
-- `app.css` — dark background `#1a1a2e`, full-viewport graph container, status bar, blast radius animations
+**Status**: COMPLETE (commit d08e02a)
+- `MainLayout.razor` — `FluentDesignTheme` dark mode with steel blue accent `#4682B4`, `FluentLayout` → `FluentStack` full-viewport, `StorageName="theme"` for localStorage persistence
+- `app.css` — dark navy `#1a1a2e` base, `#graph-container` flex layout, `.header-bar` / `.alert-banner` / `.stats-footer` styling, `@keyframes pulse-live` animation, dark-themed `#blazor-error-ui` + `.loading-progress`
+- **Verified**: `dotnet build BlastRadiusUI` — 0 warnings, 0 errors
 
 ---
 
@@ -300,13 +317,13 @@ Phase 0 (COMPLETE ✅) ───┐
                           ├── Phase 2 (C# models TDD) ✅      ├── Phase 4 (function_app TDD) ✅
                           ├── Phase 3 (signalr_utils TDD) ✅ ─┘         │
                           │                                    Phase 5 (seed + SWA config) ✅
-                          │                                    Phase 6 (Blazor UI)
+                          │                                    Phase 6 (Blazor UI) ✅
                           └──────────────────────────────────── Phase 7 (E2E verify)
 ```
 
-**Critical path**: ~~Phase 0~~ → ~~Phase 1~~ → ~~Phase 4~~ → Phase 6 → Phase 7
+**Critical path**: ~~Phase 0~~ → ~~Phase 1~~ → ~~Phase 4~~ → ~~Phase 6~~ → Phase 7
 **Parallel**: ~~Phase 2 ∥ Phase 1~~, ~~Phase 3 ∥ Phase 2~~, ~~Phase 5 ∥ Phase 6~~
-**Next**: Phase 6 (Blazor frontend)
+**Next**: Phase 7 (E2E verification — local smoke test with Azurite)
 
 ---
 
@@ -349,6 +366,20 @@ Phase 0 (COMPLETE ✅) ───┐
 - [x] Security headers: `nosniff`, `DENY` framing, strict referrer, restrictive permissions
 - [x] No credentials in code (invariant 4)
 
-### E2E (Phases 6–7) — PENDING
-- [ ] Phase 6: Blazor Home.razor renders 3D graph + SignalR client
+### Phase 6 (Blazor Frontend) — COMPLETE ✅
+- [x] `Program.cs` — `#if DEBUG` HttpClient to localhost:7071, Fluent UI services registered
+- [x] `index.html` — Three.js + 3d-force-graph CDN, Fluent UI CSS, scoped CSS enabled
+- [x] `_Imports.razor` — Models and FluentUI namespaces added
+- [x] `graph.js` — ForceGraph3D init, blast radius highlighting (amber/red/blue), reset, dispose
+- [x] `Home.razor` — Full dashboard: header/LIVE badge, alert banner, 3D graph, stats footer
+- [x] SignalR client with `WithAutomaticReconnect()`, non-fatal failure handling
+- [x] `IAsyncDisposable` — disposes HubConnection + JS module, catches `JSDisconnectedException`
+- [x] 8 Azure icon SVGs (one per azureType in services.json)
+- [x] `MainLayout.razor` — FluentDesignTheme dark mode, steel blue accent
+- [x] `app.css` — dark navy theme, full-viewport graph, alert banner, pulse animation
+- [x] Frontend is read-only (invariant 8) — only GET requests
+- [x] `dotnet build BlastRadiusUI` — 0 warnings, 0 errors
+- [x] Full test suite: 45/45 GREEN (34 Python + 11 C#)
+
+### E2E (Phase 7) — PENDING
 - [ ] Phase 7 E2E: alert → 3D graph highlights in browser
