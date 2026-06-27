@@ -130,11 +130,14 @@
                 {
                     options.AccessTokenProvider =
                         () => Task.FromResult<string?>(negotiate.AccessToken);
+                    options.SkipNegotiation = true;
+                    options.Transports =
+                        Microsoft.AspNetCore.Http.Connections.HttpTransportType.WebSockets;
                 })
                 .WithAutomaticReconnect()
                 .Build();
 
-            _hubConnection.On<BlastRadiusResult>("blastRadius", OnBlastRadiusReceived);
+            _hubConnection.On<BlastRadiusResult>("blastradius", OnBlastRadiusReceived);
 
             await _hubConnection.StartAsync();
             _isConnected = true;

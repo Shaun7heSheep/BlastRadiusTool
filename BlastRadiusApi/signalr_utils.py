@@ -31,19 +31,28 @@ def _generate_jwt(access_key: str, audience: str, expires_in: int = 300) -> str:
     """Generate a signed HS256 JWT using stdlib only (no PyJWT dependency)."""
     header = (
         base64.urlsafe_b64encode(
-            json.dumps({"alg": "HS256", "typ": "JWT"}).encode()
+            json.dumps({"alg": "HS256", "typ": "JWT"}, separators=(",", ":")).encode()
         )
         .rstrip(b"=")
         .decode()
     )
     payload_data = {"aud": audience, "exp": int(time.time()) + expires_in}
     payload = (
-        base64.urlsafe_b64encode(json.dumps(payload_data).encode())
+        base64.urlsafe_b64encode(
+            json.dumps(payload_data, separators=(",", ":")).encode()
+        )
         .rstrip(b"=")
         .decode()
     )
     signing_input = f"{header}.{payload}"
-    key = base64.b64decode(access_key + "==")
+    # The AccessKey is the HMAC-SHA256 signing key as its RAW UTF-8 bytes.
+    # Do NOT base64-decode it first. The official Azure SignalR SDK signs with
+    #   new SymmetricSecurityKey(Encoding.UTF8.GetBytes(AccessKey))
+    # i.e. the literal key string's UTF-8 bytes. base64-decoding produces a
+    # completely different key, so the resulting signature won't match what the
+    # emulator/service computes and every token is rejected with 401.
+    # (This was the bug: a previous version b64-decoded access_key here.)
+    key = access_key.encode("utf-8")
     signature = (
         base64.urlsafe_b64encode(
             hmac.new(key, signing_input.encode(), hashlib.sha256).digest()
@@ -70,6 +79,8 @@ def broadcast(
         access_key = parts["AccessKey"]
 
         url = f"{endpoint}/api/v1/hubs/{hub_name}"
+        # The JWT "aud" claim must equal the request URL exactly; the service
+        # validates the token's audience against the endpoint being called.
         token = _generate_jwt(access_key, url)
 
         requests.post(
@@ -99,6 +110,9 @@ def negotiate(
     endpoint = parts["Endpoint"].rstrip("/")
     access_key = parts["AccessKey"]
 
+    # The "aud" claim must match the client connection URL exactly, including
+    # the "?hub=" query string. A mismatch (e.g. dropping the query) makes the
+    # service reject the client's negotiate token with 401.
     client_url = f"{endpoint}/client/?hub={hub_name}"
     token = _generate_jwt(access_key, client_url, expires_in=3600)
 

@@ -144,3 +144,34 @@ class TestNegotiate:
             f"JWT must have 3 dot-separated parts (header.payload.signature), "
             f"got {len(parts)} parts: {token!r}"
         )
+
+    def test_negotiate_token_signed_with_raw_utf8_key(self):
+        """JWT must be signed with AccessKey as raw UTF-8 bytes, not base64-decoded.
+
+        The official Azure SignalR C# SDK signs with:
+            new SymmetricSecurityKey(Encoding.UTF8.GetBytes(AccessKey))
+        Our code must do the equivalent: access_key.encode("utf-8").
+        """
+        import base64
+        import hashlib
+        import hmac
+
+        result = negotiate(FAKE_CONNECTION_STRING, FAKE_HUB_NAME)
+        token = result["accessToken"]
+        header_b64, payload_b64, signature_b64 = token.split(".")
+
+        # Re-derive the expected signature using raw UTF-8 key bytes
+        access_key = "dGVzdGtleXRoYXRpc2F0bGVhc3QzMmJ5dGVzbG9uZzE="
+        key = access_key.encode("utf-8")  # raw UTF-8, NOT base64.b64decode
+        signing_input = f"{header_b64}.{payload_b64}".encode()
+        expected_sig = (
+            base64.urlsafe_b64encode(
+                hmac.new(key, signing_input, hashlib.sha256).digest()
+            )
+            .rstrip(b"=")
+            .decode()
+        )
+        assert signature_b64 == expected_sig, (
+            "JWT signature must match HMAC-SHA256 using raw UTF-8 AccessKey bytes. "
+            "If this fails, the key is probably being base64-decoded before signing."
+        )
