@@ -5,23 +5,20 @@ namespace BlastRadiusUI.Tests;
 
 public class ModelDeserializationTests
 {
-    private static readonly JsonSerializerOptions SnakeCaseOptions = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower
-    };
+    private static readonly JsonSerializerOptions WebOptions = new(JsonSerializerDefaults.Web);
 
     [Fact]
-    public void Deserialize_BlastRadiusResult_FromSnakeCaseJson()
+    public void Deserialize_BlastRadiusResult_FromCamelCaseJson()
     {
         var json = """
         {
-            "failed_node": "payments-servicebus",
-            "affected_nodes": ["order-function", "api-management"],
-            "affected_edges": [{"source": "order-function", "target": "payments-servicebus"}],
+            "failedNode": "payments-servicebus",
+            "affectedNodes": ["order-function", "api-management"],
+            "affectedEdges": [{"source": "order-function", "target": "payments-servicebus"}],
             "timestamp": "2026-06-26T10:00:00Z"
         }
         """;
-        var result = JsonSerializer.Deserialize<BlastRadiusResult>(json, SnakeCaseOptions);
+        var result = JsonSerializer.Deserialize<BlastRadiusResult>(json, WebOptions);
         Assert.NotNull(result);
         Assert.Equal("payments-servicebus", result.FailedNode);
         Assert.Equal(2, result.AffectedNodes.Count);
@@ -30,19 +27,19 @@ public class ModelDeserializationTests
     }
 
     [Fact]
-    public void Deserialize_GraphData_FromSnakeCaseJson()
+    public void Deserialize_GraphData_FromCamelCaseJson()
     {
         var json = """
         {
             "nodes": [
-                {"id": "payments-servicebus", "label": "Payments Service Bus", "azure_type": "service-bus", "app": "payments", "criticality": "high"}
+                {"id": "payments-servicebus", "label": "Payments Service Bus", "azureType": "service-bus", "app": "payments", "criticality": "high"}
             ],
             "edges": [
                 {"source": "order-function", "target": "payments-servicebus"}
             ]
         }
         """;
-        var result = JsonSerializer.Deserialize<GraphData>(json, SnakeCaseOptions);
+        var result = JsonSerializer.Deserialize<GraphData>(json, WebOptions);
         Assert.NotNull(result);
         Assert.Single(result.Nodes);
         Assert.Equal("payments-servicebus", result.Nodes[0].Id);
@@ -53,8 +50,8 @@ public class ModelDeserializationTests
     [Fact]
     public void Deserialize_ServiceNode_AllProperties()
     {
-        var json = """{"id": "cosmos-db", "label": "Cosmos DB", "azure_type": "cosmos-db", "app": "shared", "criticality": "high"}""";
-        var node = JsonSerializer.Deserialize<ServiceNode>(json, SnakeCaseOptions);
+        var json = """{"id": "cosmos-db", "label": "Cosmos DB", "azureType": "cosmos-db", "app": "shared", "criticality": "high"}""";
+        var node = JsonSerializer.Deserialize<ServiceNode>(json, WebOptions);
         Assert.NotNull(node);
         Assert.Equal("cosmos-db", node.Id);
         Assert.Equal("Cosmos DB", node.Label);
@@ -67,7 +64,7 @@ public class ModelDeserializationTests
     public void Deserialize_DependencyEdge()
     {
         var json = """{"source": "order-function", "target": "payments-servicebus"}""";
-        var edge = JsonSerializer.Deserialize<DependencyEdge>(json, SnakeCaseOptions);
+        var edge = JsonSerializer.Deserialize<DependencyEdge>(json, WebOptions);
         Assert.NotNull(edge);
         Assert.Equal("order-function", edge.Source);
         Assert.Equal("payments-servicebus", edge.Target);
@@ -76,8 +73,8 @@ public class ModelDeserializationTests
     [Fact]
     public void Deserialize_SignalRNegotiateResponse()
     {
-        var json = """{"url": "https://myservice.service.signalr.net/client", "access_token": "eyJhbGciOiJIUz..."}""";
-        var response = JsonSerializer.Deserialize<SignalRNegotiateResponse>(json, SnakeCaseOptions);
+        var json = """{"url": "https://myservice.service.signalr.net/client", "accessToken": "eyJhbGciOiJIUz..."}""";
+        var response = JsonSerializer.Deserialize<SignalRNegotiateResponse>(json, WebOptions);
         Assert.NotNull(response);
         Assert.Equal("https://myservice.service.signalr.net/client", response.Url);
         Assert.Equal("eyJhbGciOiJIUz...", response.AccessToken);
@@ -88,13 +85,13 @@ public class ModelDeserializationTests
     {
         var json = """
         {
-            "failed_node": "api-management",
-            "affected_nodes": [],
-            "affected_edges": [],
+            "failedNode": "api-management",
+            "affectedNodes": [],
+            "affectedEdges": [],
             "timestamp": "2026-06-26T10:00:00Z"
         }
         """;
-        var result = JsonSerializer.Deserialize<BlastRadiusResult>(json, SnakeCaseOptions);
+        var result = JsonSerializer.Deserialize<BlastRadiusResult>(json, WebOptions);
         Assert.NotNull(result);
         Assert.Empty(result.AffectedNodes);
         Assert.Empty(result.AffectedEdges);

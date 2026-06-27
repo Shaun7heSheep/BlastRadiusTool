@@ -112,7 +112,15 @@ def graph(req: func.HttpRequest) -> func.HttpResponse:
     """GET /api/graph — return the current services.json graph."""
     svc = get_blob_service_client()
     container = svc.get_container_client(CONTAINER_NAME)
-    content = container.get_blob_client(GRAPH_BLOB).download_blob().readall()
+    try:
+        content = container.get_blob_client(GRAPH_BLOB).download_blob().readall()
+    except ResourceNotFoundError:
+        logger.warning("Graph blob not found - graph has not been seeded yet")
+        return func.HttpResponse(
+            json.dumps({"error": "Graph not seeded yet"}),
+            status_code=503,
+            mimetype="application/json",
+        )
     return func.HttpResponse(
         content,
         status_code=200,

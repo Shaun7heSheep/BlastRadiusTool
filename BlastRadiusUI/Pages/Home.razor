@@ -67,6 +67,7 @@
     private GraphData? _graphData;
     private BlastRadiusResult? _blastResult;
     private bool _isConnected;
+    private bool _graphInitialized;
 
     // ── Lifecycle: load data and set up SignalR ─────────────────────────
     protected override async Task OnInitializedAsync()
@@ -103,7 +104,8 @@
     // ── Lifecycle: first render triggers JS interop ─────────────────────
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (!firstRender || _graphData is null) return;
+        if (_graphInitialized || _graphData is null) return;
+        _graphInitialized = true;
 
         _jsModule = await JS.InvokeAsync<IJSObjectReference>("import", "./js/graph.js");
         await _jsModule.InvokeVoidAsync("initGraph", "graph-container", _graphData);
@@ -137,7 +139,7 @@
                 .WithAutomaticReconnect()
                 .Build();
 
-            _hubConnection.On<BlastRadiusResult>("blastradius", OnBlastRadiusReceived);
+            _hubConnection.On<BlastRadiusResult>("blastRadius", OnBlastRadiusReceived);
 
             await _hubConnection.StartAsync();
             _isConnected = true;
