@@ -4,12 +4,12 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>BlastRadiusUI</title>
+    <title>Blast Radius Tool</title>
     <base href="/" />
     <link rel="preload" id="webassembly" />
     <link rel="stylesheet" href="css/app.css" />
-    <!-- If you add any scoped CSS files, uncomment the following to load them
-    <link href="BlastRadiusUI.styles.css" rel="stylesheet" /> -->
+    <link href="_content/Microsoft.FluentUI.AspNetCore.Components/css/reboot.css" rel="stylesheet" />
+    <link href="BlastRadiusUI.styles.css" rel="stylesheet" />
     <script type="importmap"></script>
 </head>
 
@@ -27,6 +27,10 @@
         <a href="." class="reload">Reload</a>
         <span class="dismiss">🗙</span>
     </div>
+    <!-- Three.js — required by 3d-force-graph -->
+    <script src="https://unpkg.com/three"></script>
+    <!-- 3d-force-graph (only non-Microsoft library) -->
+    <script src="https://unpkg.com/3d-force-graph"></script>
     <script src="_framework/blazor.webassembly#[.{fingerprint}].js"></script>
 </body>
 

@@ -1,3 +1,13 @@
-﻿@inherits LayoutComponentBase
+@inherits LayoutComponentBase
 
-@Body
+<FluentDesignTheme @bind-Mode="@_themeMode" CustomColor="#4682B4" StorageName="theme" />
+
+<FluentLayout>
+    <FluentStack Orientation="Orientation.Vertical" Style="height: 100vh;">
+        @Body
+    </FluentStack>
+</FluentLayout>
+
+@code {
+    private DesignThemeModes _themeMode = DesignThemeModes.Dark;
+}
