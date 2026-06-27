@@ -11,6 +11,9 @@ __pycache__/
 *.pyc
 .python_version
 
+# Azure Local Storage Emulator
+.azurite/
+
 # Azure Functions local secrets — NEVER commit
 BlastRadiusApi/local.settings.json
 
