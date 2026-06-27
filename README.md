@@ -342,170 +342,227 @@ For local development, the team runs the Azure Function and Blazor app locally u
 
 ## Getting Started — Local Development
 
+The entire stack runs locally with no Azure subscription required. Two open-source emulators stand in for the cloud services:
+
+| Cloud service | Local replacement | Default address |
+|---|---|---|
+| Azure Blob Storage | **Azurite** (open-source storage emulator) | `localhost:10000` (Blob), `10001` (Queue), `10002` (Table) |
+| Azure SignalR Service | **Azure SignalR Emulator** (.NET global tool) | `localhost:8888` |
+
 ### Prerequisites
 
-Ensure you have the following installed:
+Install these before proceeding:
 
-- **Python 3.9+** — for the Azure Functions backend
-- **.NET 10 SDK** — for the Blazor frontend and tests
-- **Azure Functions Core Tools** — required to run Azure Functions locally (`npm install -g azure-functions-core-tools@4 --unsafe-perm`)
-- **Git** — for version control
+| Tool | Install command | Verify |
+|---|---|---|
+| **Python 3.9+** | [python.org](https://www.python.org/downloads/) | `python --version` |
+| **.NET 10 SDK** | [dot.net](https://dot.net) | `dotnet --version` |
+| **Node.js 18+** | [nodejs.org](https://nodejs.org/) | `node --version` |
+| **Azure Functions Core Tools v4** | `npm install -g azure-functions-core-tools@4 --unsafe-perm` | `func --version` |
+| **Azurite** | `npm install -g azurite` | `azurite --version` |
+| **Azure SignalR Emulator** | `dotnet tool install -g Microsoft.Azure.SignalR.Emulator` | `dotnet tool list -g` |
+| **Git** | [git-scm.com](https://git-scm.com/) | `git --version` |
 
 ### Project Structure
 
 ```
 BlastRadiusTool/
 ├── BlastRadiusApi/              # Python Azure Functions backend
-│   ├── function_app.py          # HTTP endpoints (blast_radius, graph, blast_result, signalr/negotiate)
+│   ├── function_app.py          # HTTP endpoints (blast_radius, graph, blast_result, signalr_negotiate)
 │   ├── graph_utils.py           # BFS graph traversal and serialisation
 │   ├── signalr_utils.py         # SignalR broadcast helpers
 │   ├── scripts/
 │   │   └── seed_graph.py        # One-time graph seeding to Blob Storage
+│   ├── data/
+│   │   └── services.json        # Source dependency graph
 │   ├── requirements.txt         # Python dependencies (networkx, azure-functions, etc.)
 │   ├── local.settings.json.example
 │   └── tests/                   # pytest unit and integration tests
 ├── BlastRadiusUI/               # Blazor WebAssembly frontend (.NET 10 LTS / C# 14)
 │   ├── Pages/Home.razor         # 3D graph dashboard
-│   ├── Components/              # Reusable Blazor components
-│   └── wwwroot/                 # Static assets (CSS, JavaScript interop)
+│   ├── Models/                  # C# record types (GraphData, BlastRadiusResult, etc.)
+│   └── wwwroot/                 # Static assets (CSS, JS interop, Azure icons)
 ├── BlastRadiusUI.Tests/         # xUnit v3 tests for Blazor models
 ├── BlastRadiusTool.slnx         # .NET solution file
 └── README.md                    # This file
 ```
 
-### Step 1: Clone and Setup
+### Step 1: Clone the Repository
 
 ```powershell
 git clone https://github.com/YOUR_ORG/BlastRadiusTool.git
 cd BlastRadiusTool
 ```
 
-### Step 2: Set Up the Azure Functions Backend
+### Step 2: Configure Local Settings
 
-#### 2a. Install Python dependencies
-
-```powershell
-cd BlastRadiusApi
-pip install -r requirements.txt
-```
-
-#### 2b. Configure local settings
-
-Copy `local.settings.json.example` to `local.settings.json`:
+Copy the example settings file:
 
 ```powershell
-cp local.settings.json.example local.settings.json
+cp BlastRadiusApi/local.settings.json.example BlastRadiusApi/local.settings.json
 ```
 
-Edit `local.settings.json` with your local Azure dev environment credentials:
+Set the contents of `BlastRadiusApi/local.settings.json` to point at the two emulators:
 
 ```json
 {
   "IsEncrypted": false,
   "Values": {
-    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
-    "AzureSignalRConnectionString": "<your-signalr-connection-string>",
-    "AZURE_STORAGE_ACCOUNT_NAME": "<your-storage-account-name>",
-    "AZURE_STORAGE_ACCOUNT_KEY": "<your-storage-account-key>",
     "FUNCTIONS_WORKER_RUNTIME": "python",
-    "AzureWebJobsFeatureFlags": "EnableWorkerIndexing"
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+    "AzureSignalRConnectionString": "Endpoint=http://localhost:8888;AccessKey=ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGH;Version=1.0"
+  },
+  "Host": {
+    "CORS": "http://localhost:5178,https://localhost:7206",
+    "CORSCredentials": true
   }
 }
 ```
 
-**Note:** `local.settings.json` is gitignored — never commit credentials.
+| Setting | Value | Purpose |
+|---|---|---|
+| `AzureWebJobsStorage` | `UseDevelopmentStorage=true` | Routes Blob Storage calls to Azurite on `localhost:10000` |
+| `AzureSignalRConnectionString` | `Endpoint=http://localhost:8888;...` | Routes SignalR broadcasts to the local emulator |
+| `Host.CORS` | `localhost:5178` and `localhost:7206` | Allows the Blazor dev server to call the Function API |
 
-#### 2c. Seed the dependency graph
+**Note:** `local.settings.json` is gitignored — never commit credentials. See [`BlastRadiusApi/README.md`](BlastRadiusApi/README.md) for a full settings reference, including real Azure resource options.
 
-Before running the backend, populate the Blob Storage graph with sample data:
-
-```powershell
-python scripts/seed_graph.py
-```
-
-This reads `scripts/services.json` and uploads it to your local Blob Storage (`graph-data` container, `services.json` blob).
-
-#### 2d. Run the Azure Functions locally
-
-```powershell
-func start
-```
-
-The API will be available at `http://localhost:7071`. You should see output like:
-
-```
-Functions runtime started. Listening on: http://localhost:7071
-```
-
-### Step 3: Set Up the Blazor WebAssembly Frontend
-
-#### 3a. Navigate to the UI project
-
-```powershell
-cd ../BlastRadiusUI
-```
-
-#### 3b. Run with hot reload (recommended for development)
-
-```powershell
-dotnet watch
-```
-
-The dashboard will be available at `http://localhost:5178` (HTTP) or `https://localhost:7206` (HTTPS). The `dotnet watch` command automatically recompiles and refreshes the browser when you make changes.
-
-#### 3b (Alternative) Run without hot reload
-
-```powershell
-dotnet run
-```
-
-### Step 4: Verify the Local Setup
-
-1. Open your browser to `https://localhost:7206`
-2. You should see the 3D dependency graph loaded from your local Azure Functions backend
-3. (Optional) Click on a node to simulate an alert — the blast radius should highlight dependent services in red
-
-If you see an error, check:
-- Is the Azure Functions backend running on `http://localhost:7071`?
-- Does `local.settings.json` have valid connection strings?
-- Did you run `seed_graph.py` to populate the graph?
-
-### Step 5: Run Tests
-
-#### Run all tests
-
-```powershell
-dotnet run --project BlastRadiusUI.Tests
-```
-
-#### Run a specific test
-
-```powershell
-dotnet run --project BlastRadiusUI.Tests -- --filter "FullyQualifiedName~TestName"
-```
-
-#### Run with code coverage
-
-```powershell
-dotnet run --project BlastRadiusUI.Tests -- --coverage --coverage-output-format cobertura
-```
-
-#### Run Python API tests
+### Step 3: Install Python Dependencies
 
 ```powershell
 cd BlastRadiusApi
-pytest
+pip install -r requirements.txt
+cd ..
 ```
+
+### Step 4: Start the Emulators
+
+Open **two separate terminals** and start each emulator. Leave both running for the duration of your session.
+
+**Terminal 1 — Azurite (Blob Storage emulator):**
+
+```powershell
+azurite --silent --skipApiVersionCheck
+```
+
+`--skipApiVersionCheck` is required because the Azure Storage SDK may send a newer API version than Azurite supports; without it, blob operations can fail with a version-mismatch error.
+
+**Terminal 2 — Azure SignalR Emulator:**
+
+```powershell
+asrs-emulator start
+```
+
+The emulator listens on `http://localhost:8888` and accepts the well-known AccessKey `ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGH` configured in Step 2.
+
+### Step 5: Seed the Dependency Graph
+
+With Azurite running, populate the local Blob Storage with the sample graph:
+
+```powershell
+cd BlastRadiusApi
+python scripts/seed_graph.py
+cd ..
+```
+
+This reads `BlastRadiusApi/data/services.json`, validates it, creates the `graph-data` container in Azurite, and uploads `services.json`. Expected output:
+
+```
+Graph validated: 15 nodes, 20 edges
+Uploaded services.json to container graph-data (2048 bytes)
+```
+
+Re-run this only when you change `data/services.json`.
+
+### Step 6: Start the Azure Functions Backend
+
+**Terminal 3:**
+
+```powershell
+cd BlastRadiusApi
+func start
+```
+
+The API is available at `http://localhost:7071` with four registered functions:
+
+```
+Functions:
+    blast_radius:      [POST] http://localhost:7071/api/blast_radius
+    blast_result:      [GET]  http://localhost:7071/api/blast_result
+    graph:             [GET]  http://localhost:7071/api/graph
+    signalr_negotiate: [GET]  http://localhost:7071/api/signalr_negotiate
+```
+
+Smoke-test the graph endpoint:
+
+```powershell
+curl http://localhost:7071/api/graph
+```
+
+### Step 7: Start the Blazor Frontend
+
+**Terminal 4:**
+
+```powershell
+dotnet watch --project BlastRadiusUI
+```
+
+The dashboard is available at `http://localhost:5178` (HTTP) or `https://localhost:7206` (HTTPS). `dotnet watch` enables hot reload — C# and Razor changes recompile and refresh the browser automatically.
+
+Alternative without hot reload: `dotnet run --project BlastRadiusUI`
+
+### Step 8: Verify the Local Setup
+
+1. Open your browser to `https://localhost:7206`
+2. You should see the 3D dependency graph rendered with Azure service icons
+3. The footer should display node and edge counts
+4. The SignalR connection should report connected (the emulator serves real WebSocket connections)
+
+**To simulate an alert**, POST an alert payload to the blast radius endpoint:
+
+```powershell
+curl -X POST "http://localhost:7071/api/blast_radius" -H "Content-Type: application/json" -d "{\"data\":{\"essentials\":{\"alertTargetIDs\":[\"/subscriptions/0/resourceGroups/rg/providers/Microsoft.ServiceBus/namespaces/payments-servicebus\"]}}}"
+```
+
+Affected nodes should highlight red in real time across every open browser tab.
+
+### Running Tests
+
+**Blazor UI tests (xUnit v3):**
+
+```powershell
+# Run all tests
+dotnet run --project BlastRadiusUI.Tests
+
+# Run a specific test
+dotnet run --project BlastRadiusUI.Tests -- --filter "FullyQualifiedName~TestName"
+
+# Run with code coverage
+dotnet run --project BlastRadiusUI.Tests -- --coverage --coverage-output-format cobertura
+```
+
+**Python API tests (pytest):**
+
+```powershell
+cd BlastRadiusApi
+python -m pytest tests/ -v
+```
+
+Tests are self-contained and do not require the emulators — Azure SDK calls are mocked.
 
 ### Troubleshooting
 
-| Problem | Solution |
-|---|---|
-| "Azurite not running" | Install Azure Storage Emulator or Azurite: `npm install -g azurite`. Then run `azurite` in a separate terminal. |
-| SignalR connection fails | Verify `AzureSignalRConnectionString` in `local.settings.json` is correct. |
-| 404 on `/api/graph` | Check that `seed_graph.py` completed successfully and `services.json` exists in Blob Storage (`graph-data` container). |
-| Port 7071 already in use | Run `func start --port 7072` to use a different port, then update the Blazor client `appsettings.json` to point to the new port. |
-| `.NET 10 SDK not found` | Run `dotnet --version` to verify. Download from https://dot.net if needed. |
+| Problem | Cause | Solution |
+|---|---|---|
+| `azurite` command not found | Azurite not installed | `npm install -g azurite` |
+| `asrs-emulator` command not found | SignalR Emulator not installed | `dotnet tool install -g Microsoft.Azure.SignalR.Emulator` |
+| Blob operations fail with an API-version error | Azurite does not support the version the SDK sends | Start Azurite with `--skipApiVersionCheck` |
+| SignalR emulator rejects the token with 401 | AccessKey mismatch between settings and emulator | Use the well-known key `ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGH` |
+| 503 on `GET /api/graph` | Graph not seeded to Blob Storage | Run `python scripts/seed_graph.py` with Azurite running |
+| CORS errors in the browser console | Function API missing CORS config | Verify `Host.CORS` includes `http://localhost:5178,https://localhost:7206` |
+| 3D graph container is blank | JS interop / browser cache | Hard-refresh the browser (Ctrl+Shift+R); check the browser console |
+| Port 7071 already in use | Another Functions host is running | `func start --port 7072` and update the base address in `Program.cs` |
+| `.NET 10 SDK not found` | SDK not installed | Run `dotnet --version`; download from [dot.net](https://dot.net) |
 
 ---
 
