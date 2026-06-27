@@ -27,7 +27,8 @@
 9. [Technology Decisions](#technology-decisions)
 10. [Cost Estimate](#cost-estimate)
 11. [Scope Boundary](#scope-boundary)
-12. [Roadmap](#roadmap)
+12. [Getting Started - Local Development](#getting-started--local-development)
+13. [Roadmap](#roadmap)
 
 ---
 
@@ -336,6 +337,175 @@ This solution is built and owned by the **software development team**. The follo
 | Deployment to staging and production | DevOps team |
 
 For local development, the team runs the Azure Function and Blazor app locally using Azure Functions Core Tools and `dotnet run`, pointed at manually provisioned Azure dev resources.
+
+---
+
+## Getting Started — Local Development
+
+### Prerequisites
+
+Ensure you have the following installed:
+
+- **Python 3.9+** — for the Azure Functions backend
+- **.NET 10 SDK** — for the Blazor frontend and tests
+- **Azure Functions Core Tools** — required to run Azure Functions locally (`npm install -g azure-functions-core-tools@4 --unsafe-perm`)
+- **Git** — for version control
+
+### Project Structure
+
+```
+BlastRadiusTool/
+├── BlastRadiusApi/              # Python Azure Functions backend
+│   ├── function_app.py          # HTTP endpoints (blast_radius, graph, blast_result, signalr/negotiate)
+│   ├── graph_utils.py           # BFS graph traversal and serialisation
+│   ├── signalr_utils.py         # SignalR broadcast helpers
+│   ├── scripts/
+│   │   └── seed_graph.py        # One-time graph seeding to Blob Storage
+│   ├── requirements.txt         # Python dependencies (networkx, azure-functions, etc.)
+│   ├── local.settings.json.example
+│   └── tests/                   # pytest unit and integration tests
+├── BlastRadiusUI/               # Blazor WebAssembly frontend (.NET 10 LTS / C# 14)
+│   ├── Pages/Home.razor         # 3D graph dashboard
+│   ├── Components/              # Reusable Blazor components
+│   └── wwwroot/                 # Static assets (CSS, JavaScript interop)
+├── BlastRadiusUI.Tests/         # xUnit v3 tests for Blazor models
+├── BlastRadiusTool.slnx         # .NET solution file
+└── README.md                    # This file
+```
+
+### Step 1: Clone and Setup
+
+```powershell
+git clone https://github.com/YOUR_ORG/BlastRadiusTool.git
+cd BlastRadiusTool
+```
+
+### Step 2: Set Up the Azure Functions Backend
+
+#### 2a. Install Python dependencies
+
+```powershell
+cd BlastRadiusApi
+pip install -r requirements.txt
+```
+
+#### 2b. Configure local settings
+
+Copy `local.settings.json.example` to `local.settings.json`:
+
+```powershell
+cp local.settings.json.example local.settings.json
+```
+
+Edit `local.settings.json` with your local Azure dev environment credentials:
+
+```json
+{
+  "IsEncrypted": false,
+  "Values": {
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+    "AzureSignalRConnectionString": "<your-signalr-connection-string>",
+    "AZURE_STORAGE_ACCOUNT_NAME": "<your-storage-account-name>",
+    "AZURE_STORAGE_ACCOUNT_KEY": "<your-storage-account-key>",
+    "FUNCTIONS_WORKER_RUNTIME": "python",
+    "AzureWebJobsFeatureFlags": "EnableWorkerIndexing"
+  }
+}
+```
+
+**Note:** `local.settings.json` is gitignored — never commit credentials.
+
+#### 2c. Seed the dependency graph
+
+Before running the backend, populate the Blob Storage graph with sample data:
+
+```powershell
+python scripts/seed_graph.py
+```
+
+This reads `scripts/services.json` and uploads it to your local Blob Storage (`graph-data` container, `services.json` blob).
+
+#### 2d. Run the Azure Functions locally
+
+```powershell
+func start
+```
+
+The API will be available at `http://localhost:7071`. You should see output like:
+
+```
+Functions runtime started. Listening on: http://localhost:7071
+```
+
+### Step 3: Set Up the Blazor WebAssembly Frontend
+
+#### 3a. Navigate to the UI project
+
+```powershell
+cd ../BlastRadiusUI
+```
+
+#### 3b. Run with hot reload (recommended for development)
+
+```powershell
+dotnet watch
+```
+
+The dashboard will be available at `http://localhost:5178` (HTTP) or `https://localhost:7206` (HTTPS). The `dotnet watch` command automatically recompiles and refreshes the browser when you make changes.
+
+#### 3b (Alternative) Run without hot reload
+
+```powershell
+dotnet run
+```
+
+### Step 4: Verify the Local Setup
+
+1. Open your browser to `https://localhost:7206`
+2. You should see the 3D dependency graph loaded from your local Azure Functions backend
+3. (Optional) Click on a node to simulate an alert — the blast radius should highlight dependent services in red
+
+If you see an error, check:
+- Is the Azure Functions backend running on `http://localhost:7071`?
+- Does `local.settings.json` have valid connection strings?
+- Did you run `seed_graph.py` to populate the graph?
+
+### Step 5: Run Tests
+
+#### Run all tests
+
+```powershell
+dotnet run --project BlastRadiusUI.Tests
+```
+
+#### Run a specific test
+
+```powershell
+dotnet run --project BlastRadiusUI.Tests -- --filter "FullyQualifiedName~TestName"
+```
+
+#### Run with code coverage
+
+```powershell
+dotnet run --project BlastRadiusUI.Tests -- --coverage --coverage-output-format cobertura
+```
+
+#### Run Python API tests
+
+```powershell
+cd BlastRadiusApi
+pytest
+```
+
+### Troubleshooting
+
+| Problem | Solution |
+|---|---|
+| "Azurite not running" | Install Azure Storage Emulator or Azurite: `npm install -g azurite`. Then run `azurite` in a separate terminal. |
+| SignalR connection fails | Verify `AzureSignalRConnectionString` in `local.settings.json` is correct. |
+| 404 on `/api/graph` | Check that `seed_graph.py` completed successfully and `services.json` exists in Blob Storage (`graph-data` container). |
+| Port 7071 already in use | Run `func start --port 7072` to use a different port, then update the Blazor client `appsettings.json` to point to the new port. |
+| `.NET 10 SDK not found` | Run `dotnet --version` to verify. Download from https://dot.net if needed. |
 
 ---
 
