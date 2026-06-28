@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 """Upload services.json to Blob Storage. Run once per graph change."""
 
+import argparse
 import json
 import os
 import sys
 from pathlib import Path
+from dotenv import load_dotenv
+load_dotenv()
 
 from azure.identity import DefaultAzureCredential
 from azure.storage.blob import BlobServiceClient
@@ -55,13 +58,15 @@ def get_blob_service_client() -> BlobServiceClient:
     return BlobServiceClient.from_connection_string(conn_str)
 
 
-def seed(graph_path: Path) -> None:
-    """Read, validate, and upload graph_path to Blob Storage."""
-    # 1. Read and parse
+def load_and_validate(graph_path: Path) -> str:
+    """Read and validate graph_path. Exit non-zero on any validation error.
+
+    Returns the raw file contents so callers can reuse them (e.g. to upload)
+    without re-reading from disk.
+    """
     raw = graph_path.read_text(encoding="utf-8")
     data = json.loads(raw)
 
-    # 2. Validate
     errors = validate_graph(data)
     if errors:
         print("ERROR: Graph validation failed:")
@@ -72,11 +77,18 @@ def seed(graph_path: Path) -> None:
     node_count = len(data.get("nodes", []))
     edge_count = len(data.get("edges", []))
     print(f"Graph validated: {node_count} nodes, {edge_count} edges")
+    return raw
 
-    # 3. Prepare blob content (compact JSON, UTF-8)
+
+def seed(graph_path: Path) -> None:
+    """Read, validate, and upload graph_path to Blob Storage."""
+    # 1. Read and validate
+    raw = load_and_validate(graph_path)
+
+    # 2. Prepare blob content (UTF-8)
     blob_bytes = raw.encode("utf-8")
 
-    # 4. Upload to Blob Storage
+    # 3. Upload to Blob Storage
     svc = get_blob_service_client()
 
     # Ensure container exists
@@ -100,8 +112,23 @@ def seed(graph_path: Path) -> None:
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description="Validate and upload services.json to Blob Storage."
+    )
+    parser.add_argument(
+        "--validate-only",
+        action="store_true",
+        help="Validate the graph and exit without uploading. Use this as a CI gate.",
+    )
+    args = parser.parse_args()
+
     graph_path = Path(__file__).resolve().parent.parent / "data" / "services.json"
     if not graph_path.exists():
         print(f"ERROR: {graph_path} not found. Create BlastRadiusApi/data/services.json first.")
         raise SystemExit(1)
-    seed(graph_path)
+
+    if args.validate_only:
+        load_and_validate(graph_path)
+        print("Validation passed (no upload, --validate-only).")
+    else:
+        seed(graph_path)
