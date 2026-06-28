@@ -2,6 +2,7 @@
 name: backend
 description: "Use this agent for all implementation work inside BlastRadiusApi/ — Azure Function endpoints, BFS graph logic, SignalR broadcasting, Blob Storage I/O, alert payload parsing, and the seed script. Invoke for tasks like \"implement blast_radius endpoint\", \"write the BFS\", \"fill in graph_utils.py\", \"add SignalR broadcast\", or \"debug a Function error\"."
 permissionMode: acceptEdits
+model: sonnet
 color: yellow
 skills: 
   - api-design

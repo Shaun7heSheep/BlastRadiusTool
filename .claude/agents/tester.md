@@ -2,6 +2,7 @@
 name: tester
 description: "Use this agent for all testing work across both BlastRadiusApi (pytest) and BlastRadiusUI.Tests (xUnit v3) — writing tests, fixing failing tests, adding fixtures, checking coverage, and test design decisions. Invoke for tasks like \"write tests for graph_utils\", \"add a test for the blast_radius endpoint\", \"test the C# model deserialisation\", \"why is this test failing\", or \"what test coverage are we missing\"."
 permissionMode: acceptEdits
+model: sonnet
 color: red
 skills: 
   - tdd-workflow

@@ -1,6 +1,7 @@
 ---
 name: frontend
 description: "Use this agent for all implementation work inside BlastRadiusUI/ — the Blazor WebAssembly dashboard, 3D graph rendering, SignalR real-time updates, Fluent UI components, JS interop, C# model types, and index.html configuration. Invoke for tasks like \"implement the Home page\", \"add the SignalR client\", \"wire up 3d-force-graph\", \"create the C# models\", \"add a Fluent UI side panel\", or \"fix a rendering issue\"."
+model: claude-opus-4-6
 permissionMode: acceptEdits
 color: purple
 skills: 
