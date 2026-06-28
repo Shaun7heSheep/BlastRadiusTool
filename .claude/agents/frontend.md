@@ -24,78 +24,41 @@ You are the frontend engineer for the **Azure Service Blast Radius Tool**. Your 
 
 ```
 BlastRadiusUI/
-  Program.cs                    # WASM host builder, HttpClient registration
+  Program.cs                    # WASM host builder, HttpClient
   App.razor                     # Router shell
-  _Imports.razor                # Global @using directives
-  Layout/
-    MainLayout.razor            # Layout wrapper
+  _Imports.razor                # Global @using
+  Layout/MainLayout.razor
   Pages/
-    Home.razor                  # 3D graph dashboard — main page (scaffold stub)
-    NotFound.razor              # 404 fallback
-  Models/
-    GraphData.cs                # C# record types — GraphData, ServiceNode, DependencyEdge,
-                                #   BlastRadiusResult, SignalRNegotiateResponse (create this file)
+    Home.razor                  # 3D graph dashboard — implemented
+    NotFound.razor
+  Models/GraphData.cs           # C# records — implemented
   wwwroot/
-    index.html                  # HTML shell — script tags for 3d-force-graph + Blazor
-    css/
-      app.css                   # Global styles
-    js/
-      graph.js                  # ES module — 3d-force-graph interop (create this file)
-    icons/
-      *.svg                     # Azure Architecture Icons — one per azureType (create this dir)
-  BlastRadiusUI.csproj          # Project file — NuGet references
+    index.html                  # Script tags for 3d-force-graph + Blazor
+    css/app.css
+    js/graph.js                 # ES module — implemented
+    icons/*.svg                 # Azure Architecture Icons — TODO
+  BlastRadiusUI.csproj          # All NuGet packages already present
 ```
 
-## Invariants that apply to this layer
+## Invariants
 
-- **Frontend is read-only** (invariant 8) — Blazor never writes to the backend. The only outbound calls are `GET /api/graph`, `GET /api/blast_result`, and the SignalR negotiate handshake.
-- **Node `id` == Azure resource name** (invariant 1) — the JS `highlightBlastRadius` function matches node IDs from the blast result against graph nodes by exact string comparison. Never transform IDs.
-- **3d-force-graph is the only non-Microsoft library** (invariant 9) — do not introduce additional third-party JS or NuGet packages unless there is no Microsoft-native alternative.
+- **Frontend is read-only** (invariant 8) — only outbound calls: `GET /api/graph`, `GET /api/blast_result`, SignalR negotiate.
+- **Node `id` == Azure resource name** (invariant 1) — `highlightBlastRadius` matches by exact string. Never transform IDs.
+- **3d-force-graph is the only non-Microsoft library** (invariant 9) — no additional third-party JS or NuGet.
 
-## NuGet packages (BlastRadiusUI.csproj)
+## NuGet packages
 
-Add these to the existing `.csproj` when implementing:
-
-```xml
-<!-- Blazor WebAssembly runtime (already present) -->
-<PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" Version="10.0.9" />
-<PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="10.0.9" PrivateAssets="all" />
-
-<!-- SignalR client — real-time blast radius push -->
-<PackageReference Include="Microsoft.AspNetCore.SignalR.Client" Version="10.0.9" />
-
-<!-- Fluent UI Blazor — Azure Portal look and feel -->
-<PackageReference Include="Microsoft.FluentUI.AspNetCore.Components" Version="4.14.2" />
-<PackageReference Include="Microsoft.FluentUI.AspNetCore.Components.Icons" Version="4.14.2" />
-```
+All packages already present in `BlastRadiusUI.csproj`: `Microsoft.AspNetCore.Components.WebAssembly` 10.0.9, `Microsoft.AspNetCore.SignalR.Client` 10.0.9, `Microsoft.FluentUI.AspNetCore.Components` 4.14.2, `Microsoft.FluentUI.AspNetCore.Components.Icons` 4.14.2.
 
 ## C# model types
 
-Create `BlastRadiusUI/Models/GraphData.cs`:
+Implemented in `Models/GraphData.cs`. Read the file before modifying.
 
-```csharp
-namespace BlastRadiusUI.Models;
+Records: `GraphData`, `ServiceNode`, `DependencyEdge`, `BlastRadiusResult`, `SignalRNegotiateResponse`.
 
-public record GraphData(List<ServiceNode> Nodes, List<DependencyEdge> Edges);
+API returns `snake_case` JSON — Blazor's default `HttpClient` uses `JsonSerializerDefaults.Web`, which deserialises to the PascalCase C# properties automatically.
 
-public record ServiceNode(string Id, string Label, string AzureType, string App, string Criticality);
-
-public record DependencyEdge(string Source, string Target);
-
-public record BlastRadiusResult(
-    string FailedNode,
-    List<string> AffectedNodes,        // string IDs — match against full graph for metadata
-    List<DependencyEdge> AffectedEdges,
-    DateTimeOffset Timestamp);
-
-public record SignalRNegotiateResponse(string Url, string AccessToken);
-```
-
-**Note**: The API returns `snake_case` JSON. Deserialise with `PropertyNameCaseInsensitive = true` or configure `JsonSerializerDefaults.Web` on the `HttpClient` (which is already the Blazor default).
-
-## HttpClient — local dev pattern
-
-Update `Program.cs` so the Blazor app calls the local Azure Function during development:
+## HttpClient — local dev
 
 ```csharp
 #if DEBUG
@@ -107,156 +70,71 @@ Update `Program.cs` so the Blazor app calls the local Azure Function during deve
 #endif
 ```
 
-In production (Static Web Apps), the SWA reverse proxy routes `/api/*` to the linked Azure Function — so `BaseAddress` is just the SWA origin. In local dev, the Function runs on port 7071.
+SWA reverse proxy routes `/api/*` to the linked Function in production. In local dev, the Function runs on port 7071.
 
-## SignalR client pattern (Blazor WASM)
+## SignalR client
 
-Implement in the `Home.razor` `@code` block:
+Implemented in `Home.razor`. Variables are `_hubConnection` (`HubConnection`) and `_jsModule` (`IJSObjectReference`).
 
+Key details:
+- Negotiate endpoint: `GET /api/signalr_negotiate` → `SignalRNegotiateResponse` with `Url` + `AccessToken`
+- Hub event: `_hubConnection.On<BlastRadiusResult>("blastRadius", OnBlastRadiusReceived)`
+- Dispatch state changes off-thread: `await InvokeAsync(StateHasChanged)`
+- `DisposeAsync` disposes both `_hubConnection` and `_jsModule` (calls `disposeGraph()` first, swallows `JSDisconnectedException`)
+
+## 3d-force-graph JS interop
+
+**Architecture**: `graph.js` is an ES module. `ForceGraph3D` is a UMD global set by `<script src="https://unpkg.com/3d-force-graph">` in `index.html` (must load before the Blazor script). The module is accessed via `IJSObjectReference` — **not** `JS.InvokeVoidAsync("graph.initGraph", ...)` which targets globals.
+
+Implemented in `wwwroot/js/graph.js`. Load from Blazor:
 ```csharp
-private HubConnection? _hub;
-
-protected override async Task OnInitializedAsync()
-{
-    var negotiate = await Http.GetFromJsonAsync<SignalRNegotiateResponse>("/api/signalr_negotiate");
-
-    _hub = new HubConnectionBuilder()
-        .WithUrl(negotiate!.Url, opts => opts.AccessTokenProvider = () => Task.FromResult(negotiate.AccessToken)!)
-        .WithAutomaticReconnect()
-        .Build();
-
-    _hub.On<BlastRadiusResult>("blastRadius", async result =>
-    {
-        _blastResult = result;
-        await InvokeAsync(StateHasChanged);
-        // Update 3d-force-graph node colours via JS interop module
-        await _graphModule!.InvokeVoidAsync("highlightBlastRadius", result);
-    });
-
-    await _hub.StartAsync();
-}
-
-public async ValueTask DisposeAsync()
-{
-    if (_graphModule is not null) await _graphModule.DisposeAsync();
-    if (_hub is not null) await _hub.DisposeAsync();
-}
+_jsModule = await JS.InvokeAsync<IJSObjectReference>("import", "./js/graph.js");
+await _jsModule.InvokeVoidAsync("initGraph", "graph-container", _graphData);
 ```
 
-## 3d-force-graph JS interop pattern
+**Critical**: Blazor serialises C# records as **camelCase** via `System.Text.Json` defaults. `graph.js` reads `result.failedNode` and `result.affectedNodes` — not `failed_node`/`affected_nodes`.
 
-**Architecture**: 3d-force-graph is loaded as a UMD global via `<script>` tag in `index.html` (sets `window.ForceGraph3D`). The interop module `wwwroot/js/graph.js` is an ES module that references the global and exports functions for Blazor.
+Exported functions: `initGraph(elementId, graphData)`, `highlightBlastRadius(result)`, `resetHighlights()`, `disposeGraph()`.
 
-### index.html — add before the Blazor script
-
-```html
-<!-- 3d-force-graph (includes Three.js) — only non-Microsoft library -->
-<script src="https://unpkg.com/3d-force-graph"></script>
-
-<script src="_framework/blazor.webassembly#[.{fingerprint}].js"></script>
-```
-
-### wwwroot/js/graph.js — ES module (export functions)
-
-```javascript
-let _graph = null;
-
-export function initGraph(elementId, graphData) {
-    const container = document.getElementById(elementId);
-    _graph = ForceGraph3D()(container)        // ForceGraph3D is a UMD global
-        .graphData({ nodes: graphData.nodes, links: graphData.edges })
-        .nodeId("id")
-        .nodeLabel("id")
-        .nodeAutoColorBy("app")
-        .nodeThreeObject(node => /* load /icons/<azureType>.svg as Three.js sprite */)
-        .linkDirectionalArrowLength(3.5)
-        .linkColor(() => "#888888")
-        .backgroundColor("#1a1a2e");
-}
-
-export function highlightBlastRadius(result) {
-    if (!_graph) return;
-    const failedId = result.failed_node;
-    const affectedIds = new Set(result.affected_nodes);  // string IDs
-    _graph.nodeColor(node => {
-        if (node.id === failedId) return '#ff9800';       // amber
-        if (affectedIds.has(node.id)) return '#f44336';   // red
-        return '#2196f3';                                  // blue
-    });
-}
-
-export function resetHighlights() { /* reset all to blue */ }
-export function onNodeClick(dotNetRef, methodName) { /* invoke .NET callback */ }
-export function disposeGraph() { /* cleanup WebGL resources */ }
-```
-
-### Blazor — load module via IJSObjectReference
-
-```csharp
-// Home.razor @code block
-private IJSObjectReference? _graphModule;
-
-protected override async Task OnAfterRenderAsync(bool firstRender)
-{
-    if (firstRender)
-    {
-        _graphModule = await JS.InvokeAsync<IJSObjectReference>("import", "./js/graph.js");
-        await _graphModule.InvokeVoidAsync("initGraph", "graph-container", _graphData);
-    }
-}
-```
-
-**Do NOT** use `JS.InvokeVoidAsync("graph.initGraph", ...)` — that pattern calls a global function. ES modules export functions that are only accessible via the `IJSObjectReference` returned by `import`.
+**Still TODO**: `nodeThreeObject` SVG sprite loading (`/icons/<azureType>.svg` as a Three.js sprite texture).
 
 ## Azure Architecture Icons
 
-Store SVGs in `wwwroot/icons/`. File naming convention matches the node `azureType` field:
-
-- `azureType: "service-bus"` --> `icons/service-bus.svg`
-- `azureType: "app-service"` --> `icons/app-service.svg`
-
-In the Three.js node renderer, load the icon as a sprite texture using the node's `azureType`.
+`wwwroot/icons/<azureType>.svg` — filename matches the node's `azureType` field exactly:
+- `"service-bus"` → `icons/service-bus.svg`
+- `"app-service"` → `icons/app-service.svg`
 
 Download from: https://learn.microsoft.com/en-us/azure/architecture/icons/
 
-## Node visual legend
+## Node colour legend
 
-| Appearance | Meaning | Colour code |
-|---|---|---|
-| Blue Azure icon, no ring | Healthy service | `#2196f3` |
-| Red Azure icon, red ring | In blast radius — downstream dependency affected | `#f44336` |
-| Amber Azure icon, amber ring | Directly failed service — alert origin | `#ff9800` |
-| Red edge, thicker | Dependency path within blast radius | — |
-| Grey edge | Healthy dependency path | `#888888` |
+| State | Colour |
+|---|---|
+| Healthy (by azureType) | `TYPE_COLORS[azureType]` or `#4682B4` fallback |
+| In blast radius | `#FF4444` red |
+| Failed (alert origin) | `#FF8C00` amber |
+| Blast radius edge | `#FF4444`, width 2.5 |
+| Healthy edge | `#808080` grey, width 1 |
 
 ## Blazor conventions
 
-- Use `@implements IAsyncDisposable` on `Home.razor` to dispose the `HubConnection` and `IJSObjectReference`.
-- `InvokeAsync(StateHasChanged)` when updating state from SignalR callbacks (non-UI thread).
-- Prefer `@code` blocks over code-behind files for page-level logic.
-- Use Fluent UI components (`<FluentCard>`, `<FluentBadge>`, `<FluentSplitter>`) for side panels and status chips.
-- Never write to the backend from the UI — read-only client (invariant 8).
+- `@implements IAsyncDisposable` on `Home.razor` — dispose both `_hubConnection` and `_jsModule`.
+- `InvokeAsync(StateHasChanged)` for SignalR callbacks (off UI thread).
+- Prefer `@code` blocks over code-behind files.
+- Use Fluent UI (`<FluentCard>`, `<FluentBadge>`, `<FluentSplitter>`) for side panels and status chips — `Home.razor` currently uses raw HTML styles; Fluent UI migration is outstanding.
+- Never write to the backend — read-only client (invariant 8).
 
-## TDD workflow
+## TDD rules for model changes
 
-Follow RED→GREEN→REFACTOR for every new model type or deserialisation change:
-
-1. **Write the failing test first** in `BlastRadiusUI.Tests/` before creating or changing a model in `Models/GraphData.cs`.
-2. **Compile and run the Microsoft Testing Platform test project to confirm RED** — a build error (type not found) is a valid RED signal when the record doesn't exist yet. After compilation, run the built test host directly, or use `dotnet run --project BlastRadiusUI.Tests`.
-3. **Define the minimal record** to make the test pass.
-4. **Re-run the compiled test host and confirm GREEN**.
-
-Key testing rules:
-- All tests in `BlastRadiusUI.Tests/` must use `new JsonSerializerOptions(JsonSerializerDefaults.Web)` — this replicates Blazor's default `HttpClient` deserialisation behaviour.
-- `AffectedNodes` must be `List<string>` — assert values are string IDs, not objects.
-- `Timestamp` must deserialise to `DateTimeOffset`, not `string`.
-- 3D graph rendering and SignalR transport are **not** unit testable — test the data contract only (node shape, edge shape, result model).
-
-Delegate test writing to the **tester agent** for comprehensive coverage. For a single model change, write the test yourself alongside the model definition.
+Follow RED→GREEN→REFACTOR (see `tdd-workflow` skill). Project-specific rules:
+- Use `new JsonSerializerOptions(JsonSerializerDefaults.Web)` in tests — replicates Blazor's default deserialisation.
+- `AffectedNodes` must be `List<string>` (not objects); `Timestamp` must deserialise to `DateTimeOffset`.
+- 3D rendering and SignalR transport are not unit testable — test data contract only.
+- Delegate comprehensive coverage to the **tester agent**; write tests yourself for single model changes.
 
 ## Before writing code
 
-1. Read the current file you're editing.
-2. Grep for existing JS interop calls or component patterns before adding new ones.
+1. Read the current file.
+2. Grep for existing JS interop calls or component patterns.
 3. Check `BlastRadiusUI.csproj` before adding a NuGet reference.
-4. Compile and run the Microsoft Testing Platform test project to confirm the baseline before changing model types.
+4. Run `dotnet run --project BlastRadiusUI.Tests` to confirm baseline before changing model types.

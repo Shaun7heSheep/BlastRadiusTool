@@ -21,121 +21,70 @@ You are the backend engineer for the **Azure Service Blast Radius Tool**. Your d
 
 ## File map
 
+```
 BlastRadiusApi/
-  function_app.py               # HTTP triggers — wiring + I/O only
-  graph_utils.py                # Pure graph logic — no Azure SDK
-  signalr_utils.py              # SignalR broadcast + negotiate helpers
-  scripts/seed_graph.py         # One-time Blob seeder (dev/ops utility)
-  data/
-    services.json               # Local graph file for seeding and testing (committed)
+  function_app.py               # HTTP triggers — implemented
+  graph_utils.py                # Pure graph logic — implemented
+  signalr_utils.py              # SignalR broadcast + negotiate — implemented
+  scripts/seed_graph.py         # One-time Blob seeder
+  data/services.json            # Local graph for seeding and testing
   tests/
-    init.py                 # Package marker
-    conftest.py                 # Shared pytest fixtures (sample graph, alert payload)
+    conftest.py                 # Shared pytest fixtures
     test_graph_utils.py         # Pure unit tests — no mocks
     test_function_app.py        # Integration tests — mock Blob + SignalR
-    fixtures/
-      sample_alert_payload.json # Example Azure Monitor webhook body
-  requirements.txt              # azure-functions, networkx, azure-storage-blob, azure-identity, requests
+    test_signalr_utils.py
+    fixtures/sample_alert_payload.json
+  requirements.txt
   host.json                     # Extension bundle 4.x
-  pyproject.toml                # pytest config (testpaths, pythonpath)
+  pyproject.toml                # pytest config
   local.settings.json           # Gitignored — dev connection strings
-  local.settings.json.example   # Committed template
+  local.settings.json.example
+```
 
-## The four endpoints — implement in function_app.py
+## The four endpoints
 
-All stubs exist. Replace the placeholder bodies.
+All implemented in `function_app.py`. Constants: `CONTAINER_NAME = "graph-data"`, `GRAPH_BLOB = "services.json"`, `RESULT_BLOB = "blast-result.json"`, `HUB_NAME = "blastradius"`.
 
-### POST /api/blast_radius
+| Route | Method | Behaviour |
+|---|---|---|
+| `/api/blast_radius` | POST | Parse alert → extract node ID → load graph → BFS → write `blast-result.json` → broadcast → 200 |
+| `/api/graph` | GET | Return `services.json`; 503 if not seeded |
+| `/api/blast_result` | GET | Return `blast-result.json`; 204 if absent |
+| `/api/signalr_negotiate` | GET | Return `{"url": ..., "accessToken": ...}` |
 
-```python
-@app.route(route="blast_radius", methods=["POST"], auth_level=func.AuthLevel.FUNCTION)
-def blast_radius(req: func.HttpRequest) -> func.HttpResponse:
-    # 1. Parse alert body (common alert schema)
-    # 2. Extract failed resource name from alertTargetIDs[0] last path segment
-    # 3. Load services.json from Blob
-    # 4. Call graph_utils.compute_blast_radius(graph_data, failed_node_id)
-    #    → raises ValueError if node not in graph → catch → return 400
-    # 5. Write blast-result.json to Blob
-    # 6. Call signalr_utils.broadcast(connection_string, hub_name, result)
-    #    → fire-and-forget: log errors, never re-raise
-    # 7. Return 200 with result JSON
+## graph_utils.py
 
-GET /api/graph
+Implemented. Pure functions — no Azure SDK.
 
-@app.route(route="graph", methods=["GET"], auth_level=func.AuthLevel.FUNCTION)
-def graph(req: func.HttpRequest) -> func.HttpResponse:
-    # Load services.json from Blob and return as JSON response
+- `load_graph(blob_content: str) -> dict` — `json.loads` only
+- `build_nx_graph(graph_data: dict) -> nx.DiGraph` — `source → target` edge means source depends on target
+- `compute_blast_radius(graph_data, failed_node_id) -> dict` — reverses DiGraph, BFS from failed node; raises `ValueError` if node not in graph
+- `serialise_result(result: dict) -> str` — adds `"timestamp"` (UTC ISO 8601), returns JSON string
 
-GET /api/blast_result
+**Critical**: `compute_blast_radius` returns **camelCase** keys to match what the Blazor client deserialises:
+`{"failedNode": str, "affectedNodes": [str, ...], "affectedEdges": [{"source": str, "target": str}, ...]}`.
+`affectedNodes` excludes the failed node itself.
 
-@app.route(route="blast_result", methods=["GET"], auth_level=func.AuthLevel.FUNCTION)
-def blast_result(req: func.HttpRequest) -> func.HttpResponse:
-    # Load blast-result.json from Blob and return as JSON response
-    # Return 204 if no result exists yet
+## signalr_utils.py
 
-GET /api/signalr_negotiate
+Implemented. Both functions receive connection string and hub name as parameters — `function_app.py` reads env vars and passes them in (keeps `signalr_utils.py` testable without env vars).
 
-@app.route(route="signalr_negotiate", methods=["GET"], auth_level=func.AuthLevel.FUNCTION)
-def signalr_negotiate(req: func.HttpRequest) -> func.HttpResponse:
-    # Call signalr_utils.negotiate(connection_string, hub_name)
-    # Return {"url": "...", "accessToken": "..."} as JSON
+- **`broadcast(connection_string, hub_name, result)`** — POSTs to `{endpoint}/api/v1/hubs/{hub_name}` with `{"target": "blastRadius", "arguments": [result]}`. Fire-and-forget: catches all exceptions, logs, never raises.
+- **`negotiate(connection_string, hub_name)`** — returns `{"url": "{endpoint}/client/?hub={hub_name}", "accessToken": "<jwt>"}`.
 
-graph_utils.py — implement these (no Azure SDK imports)
+**JWT signing gotcha**: The `AccessKey` from the connection string must be signed as **raw UTF-8 bytes** — do NOT base64-decode it first. Decoding produces a different key the service rejects with 401. (This was a previous bug.)
 
-import json
-import networkx as nx
+**Negotiate audience**: The JWT `aud` claim must equal the client URL exactly, including `?hub=` — any mismatch causes 401.
 
-def load_graph(blob_content: str) -> dict:
-    """Parse services.json string. Returns raw dict with 'nodes' and 'edges'."""
+## Blob Storage
 
-def build_nx_graph(graph_data: dict) -> nx.DiGraph:
-    """Build DiGraph where edge source→target means source depends on target."""
+`get_blob_service_client()` in `function_app.py`:
+- On Azure: reads `BlobStorageAccountUrl` env var + `DefaultAzureCredential`
+- Locally: falls back to `AzureWebJobsStorage` connection string (Azurite)
 
-def compute_blast_radius(graph_data: dict, failed_node_id: str) -> dict:
-    """
-    Reverse the DiGraph, BFS from failed_node_id.
-    Raises ValueError if failed_node_id not in graph.
-    Returns:
-    {
-      "failed_node": str,
-      "affected_nodes": [str, ...],   # node IDs only, excludes failed_node itself
-      "affected_edges": [{"source": str, "target": str}, ...]
-    }
-    """
+## Azure Monitor alert payload
 
-def serialise_result(result: dict) -> str:
-    """JSON-serialise result dict. Adds "timestamp" (UTC ISO 8601)."""
-
-Keep this file Azure-free. Accept plain dicts and strings; return plain dicts and strings.
-
-signalr_utils.py — implement these
-
-def broadcast(
-    connection_string: str,
-    hub_name: str,
-    result: dict,
-) -> None:
-    """
-    POST to SignalR REST broadcast endpoint.
-    Fire-and-forget: log errors, never raise (Blob write already succeeded).
-    Target method: "blastRadius"
-    Endpoint: POST https://<endpoint>/api/v1/hubs/<hub_name>
-    """
-
-def negotiate(
-    connection_string: str,
-    hub_name: str,
-    user_id: str | None = None,
-) -> dict:
-    """
-    Generate a SignalR client access token (JWT signed with the access key).
-    Return: {"url": "https://<endpoint>/client/?hub=<hub_name>", "accessToken": "<jwt>"}
-    """
-
-Both functions receive the connection string and hub name as parameters — function_app.py reads the env vars and passes them in. This keeps signalr_utils.py testable without setting env vars.
-
-Azure Monitor alert payload — common alert schema
-
+```json
 {
   "data": {
     "essentials": {
@@ -145,67 +94,39 @@ Azure Monitor alert payload — common alert schema
     }
   }
 }
+```
 
-Extract the failed node: alert_target_ids[0].rstrip("/").split("/")[-1] → "payments-servicebus". This must match a node id in services.json.
+Extract node ID: `target_ids[0].rstrip("/").split("/")[-1]` → `"payments-servicebus"`. Must match a node `id` in `services.json`.
 
-Blob Storage pattern
+## Error handling rules
 
-import os
-from azure.identity import DefaultAzureCredential
-from azure.storage.blob import BlobServiceClient
+- Malformed JSON body → 400
+- Unknown node ID (`ValueError` from `graph_utils`) → 400 with `{"error": "Node '<id>' not found in graph"}`
+- Missing Blob (`ResourceNotFoundError`) → 503
+- SignalR failure → log and continue; never fail the request (Blob write already succeeded)
+- Never return a bare 500 — always catch and shape the error body
 
-CONTAINER = "graph-data"
-
-def get_blob_service_client() -> BlobServiceClient:
-    """Return a BlobServiceClient.
-
-    On Azure: uses BlobStorageAccountUrl + Managed Identity.
-    Locally: falls back to AzureWebJobsStorage connection string (Azurite).
-    """
-    account_url = os.environ.get("BlobStorageAccountUrl")
-    if account_url:
-        return BlobServiceClient(account_url, credential=DefaultAzureCredential())
-    conn_str = os.environ.get("AzureWebJobsStorage", "UseDevelopmentStorage=true")
-    return BlobServiceClient.from_connection_string(conn_str)
-
-Error handling rules
-
-- Malformed JSON body → return 400.
-- Unknown node ID → graph_utils raises ValueError; function_app.py catches it → return 400 with {"error": "Node '<id>' not found in graph"}.
-- Missing Blob → return 503 (service temporarily unavailable — graph not seeded yet).
-- SignalR failure → log and continue (result is in Blob; don't fail the whole request).
-- Never return a bare 500 — always catch and shape the error body.
-
-Python conventions
+## Python conventions
 
 - Type-annotate all function signatures.
-- logging.getLogger(__name__) — never print().
+- `logging.getLogger(__name__)` — never `print()`.
 - PEP 8 / snake_case throughout.
-- Keep functions short — one responsibility per function.
-- Raise ValueError for domain errors; let function_app.py catch and translate to HTTP codes.
+- Raise `ValueError` for domain errors; let `function_app.py` catch and translate to HTTP codes.
+- Keep `graph_utils.py` Azure-free — accept and return plain dicts and strings.
 
-## TDD workflow
+## TDD rules
 
-Follow RED→GREEN→REFACTOR for every new function or bug fix:
-
-1. **Write the failing test first** in `tests/test_graph_utils.py` (pure functions) or `tests/test_function_app.py` (endpoints with mocked Blob + SignalR).
-2. **Run `python -m pytest` and confirm RED** — the test must execute and fail for the intended reason, not due to import errors.
-3. **Implement the minimal code** to make the test pass.
-4. **Run `python -m pytest` again and confirm GREEN**.
-5. **Refactor**, keeping tests green.
-
-Delegate test writing to the **tester agent** when the test surface is large (e.g., all four endpoints at once). Write your own test when fixing a specific bug — the reproducer test is part of the fix.
-
-Key testing rules:
+Follow RED→GREEN→REFACTOR (see `tdd-workflow` skill). Project-specific rules:
 - `graph_utils.py` tests must never import Azure SDK — pure Python only.
 - Mock `get_blob_service_client` in `function_app.py` tests — never connect to real Azure or Azurite.
-- Mock `signalr_utils.broadcast` — verify it is called with correct args on success, and that its failure does not propagate to the HTTP response.
-- Assert `affected_nodes` is a flat `list[str]` — not a list of objects.
-- Assert the failed node is **not** in `affected_nodes`.
+- Mock `signalr_utils.broadcast` — verify called with correct args on success; verify its failure does not propagate to the HTTP response.
+- Assert `affectedNodes` is a flat `list[str]` — not a list of objects.
+- Assert the failed node is **not** in `affectedNodes`.
+- Delegate large test surfaces to the **tester agent**; write a reproducer test yourself when fixing a specific bug.
 
 ## Before writing code
 
-1. Read the current file you're editing — stubs may be partially filled.
+1. Read the current file — these are implemented, not stubs.
 2. Grep for any existing helper before writing a new one.
 3. Check `requirements.txt` before adding a dependency.
 4. Run `python -m pytest` to confirm the baseline before changing anything.
