@@ -1,7 +1,202 @@
-﻿@page "/"
+@page "/"
+@implements IAsyncDisposable
+@inject HttpClient Http
+@inject IJSRuntime JS
+@using Microsoft.AspNetCore.SignalR.Client
 
-<PageTitle>Home</PageTitle>
+<PageTitle>Blast Radius Tool</PageTitle>
 
-<h1>Hello, world!</h1>
+<div style="display:flex; flex-direction:column; height:100vh; background-color:#0d1117; color:#f0f6ff; font-family:Segoe UI, sans-serif; overflow:hidden;">
 
-Welcome to your new app.
+    @* ── Header bar ────────────────────────────────────────────────────── *@
+    <header style="display:flex; align-items:center; justify-content:space-between; padding:10px 20px; background-color:#0d1b2a; border-bottom:2px solid #1e4d8c; flex-shrink:0;">
+        <h1 style="margin:0; font-size:1.25rem; font-weight:700; color:#f0f6ff; letter-spacing:0.02em;">
+            ⚡ Blast Radius Tool
+        </h1>
+        <div style="display:flex; align-items:center; gap:8px;">
+            @if (_isConnected)
+            {
+                <span style="display:inline-flex; align-items:center; gap:6px; padding:4px 12px; border-radius:12px; background-color:#0d3320; border:1px solid #00c853; color:#69f0ae; font-size:0.8rem; font-weight:600; letter-spacing:0.05em;">
+                    <span style="width:8px; height:8px; border-radius:50%; background-color:#00c853; display:inline-block;"></span>
+                    LIVE
+                </span>
+            }
+            else
+            {
+                <span style="display:inline-flex; align-items:center; gap:6px; padding:4px 12px; border-radius:12px; background-color:#2d0e0e; border:1px solid #f44336; color:#ff7961; font-size:0.8rem; font-weight:600; letter-spacing:0.05em;">
+                    <span style="width:8px; height:8px; border-radius:50%; background-color:#f44336; display:inline-block;"></span>
+                    DISCONNECTED
+                </span>
+            }
+        </div>
+    </header>
+
+    @* ── Alert banner (visible only during an active blast radius) ───── *@
+    @if (_blastResult is not null)
+    {
+        <div style="display:flex; align-items:center; gap:14px; padding:12px 20px; background-color:#2d1010; border-bottom:2px solid #ff5252; flex-shrink:0;">
+            <span style="padding:3px 10px; border-radius:4px; background-color:#e65100; color:#ffffff; font-size:0.78rem; font-weight:700; letter-spacing:0.06em; flex-shrink:0;">
+                ⚠ ALERT
+            </span>
+            <span style="color:#f0f6ff; font-size:0.9rem;">
+                <strong style="color:#FFB74D; font-size:1rem;">@_blastResult.FailedNode</strong>
+                <span style="color:#90a4ae;"> failed &mdash; </span>
+                <strong style="color:#ff5252; font-size:1rem;">@_blastResult.AffectedNodes.Count</strong>
+                <span style="color:#90a4ae;"> downstream service(s) affected</span>
+            </span>
+            <span style="margin-left:auto; font-size:0.78rem; color:#78909c; white-space:nowrap;">
+                @_blastResult.Timestamp.ToString("yyyy-MM-dd HH:mm:ss") UTC
+            </span>
+        </div>
+    }
+
+    @* ── 3D graph container ────────────────────────────────────────────── *@
+    <div id="graph-container" style="flex:1; min-height:0;"></div>
+
+    @* ── Stats footer ──────────────────────────────────────────────────── *@
+    @if (_graphData is not null)
+    {
+        <footer style="display:flex; align-items:center; gap:28px; padding:8px 20px; background-color:#0d1b2a; border-top:2px solid #1e4d8c; font-size:0.82rem; color:#90a4ae; flex-shrink:0;">
+            <span>Nodes: <strong style="color:#64b5f6;">@_graphData.Nodes.Count</strong></span>
+            <span>Edges: <strong style="color:#64b5f6;">@_graphData.Edges.Count</strong></span>
+            @if (_blastResult is not null)
+            {
+                <span>
+                    Affected: <strong style="color:#ff5252;">@_blastResult.AffectedNodes.Count</strong>
+                </span>
+                <span style="margin-left:auto; color:#78909c; font-size:0.78rem;">
+                    Origin: <strong style="color:#FFB74D;">@_blastResult.FailedNode</strong>
+                </span>
+            }
+        </footer>
+    }
+</div>
+
+@code {
+    // ── Private state ──────────────────────────────────────────────────
+    private IJSObjectReference? _jsModule;
+    private HubConnection? _hubConnection;
+    private GraphData? _graphData;
+    private BlastRadiusResult? _blastResult;
+    private bool _isConnected;
+    private bool _graphInitialized;
+
+    // ── Lifecycle: load data and set up SignalR ─────────────────────────
+    protected override async Task OnInitializedAsync()
+    {
+        // 1. Fetch the full dependency graph (read-only — invariant 8).
+        try
+        {
+            _graphData = await Http.GetFromJsonAsync<GraphData>("/api/graph");
+        }
+        catch (Exception ex)
+        {
+            System.Console.Error.WriteLine($"Failed to load graph: {ex.Message}");
+        }
+
+        // 2. Fetch the latest blast result (may be 204 No Content).
+        try
+        {
+            var response = await Http.GetAsync("/api/blast_result");
+            if (response.IsSuccessStatusCode
+                && response.StatusCode != System.Net.HttpStatusCode.NoContent)
+            {
+                _blastResult = await response.Content.ReadFromJsonAsync<BlastRadiusResult>();
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Console.Error.WriteLine($"Failed to load blast result: {ex.Message}");
+        }
+
+        // 3. SignalR real-time connection (non-fatal if it fails — invariant 7 spirit).
+        await ConnectSignalRAsync();
+    }
+
+    // ── Lifecycle: first render triggers JS interop ─────────────────────
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_graphInitialized || _graphData is null) return;
+        _graphInitialized = true;
+
+        _jsModule = await JS.InvokeAsync<IJSObjectReference>("import", "./js/graph.js");
+        await _jsModule.InvokeVoidAsync("initGraph", "graph-container", _graphData);
+
+        // If a blast result was already loaded, highlight it immediately.
+        if (_blastResult is not null)
+        {
+            await _jsModule.InvokeVoidAsync("highlightBlastRadius", _blastResult);
+        }
+    }
+
+    // ── SignalR ─────────────────────────────────────────────────────────
+    private async Task ConnectSignalRAsync()
+    {
+        try
+        {
+            var negotiate = await Http.GetFromJsonAsync<SignalRNegotiateResponse>(
+                "/api/signalr_negotiate");
+
+            if (negotiate is null) return;
+
+            _hubConnection = new HubConnectionBuilder()
+                .WithUrl(negotiate.Url, options =>
+                {
+                    options.AccessTokenProvider =
+                        () => Task.FromResult<string?>(negotiate.AccessToken);
+                    options.SkipNegotiation = true;
+                    options.Transports =
+                        Microsoft.AspNetCore.Http.Connections.HttpTransportType.WebSockets;
+                })
+                .WithAutomaticReconnect()
+                .Build();
+
+            _hubConnection.On<BlastRadiusResult>("blastRadius", OnBlastRadiusReceived);
+
+            await _hubConnection.StartAsync();
+            _isConnected = true;
+        }
+        catch (Exception ex)
+        {
+            System.Console.Error.WriteLine(
+                $"SignalR connection failed (non-fatal): {ex.Message}");
+            _isConnected = false;
+        }
+    }
+
+    private async Task OnBlastRadiusReceived(BlastRadiusResult result)
+    {
+        _blastResult = result;
+
+        // StateHasChanged must be dispatched on the render thread.
+        await InvokeAsync(StateHasChanged);
+
+        if (_jsModule is not null)
+        {
+            await _jsModule.InvokeVoidAsync("highlightBlastRadius", result);
+        }
+    }
+
+    // ── Cleanup ─────────────────────────────────────────────────────────
+    public async ValueTask DisposeAsync()
+    {
+        if (_hubConnection is not null)
+        {
+            await _hubConnection.DisposeAsync();
+        }
+
+        if (_jsModule is not null)
+        {
+            try
+            {
+                await _jsModule.InvokeVoidAsync("disposeGraph");
+            }
+            catch (JSDisconnectedException)
+            {
+                // Circuit already torn down — nothing to clean up.
+            }
+
+            await _jsModule.DisposeAsync();
+        }
+    }
+}
