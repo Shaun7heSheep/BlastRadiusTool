@@ -25,6 +25,7 @@ project.lock.json
 .secrets
 appsettings.json
 local.settings.json
+.funcignore
 
 node_modules
 dist

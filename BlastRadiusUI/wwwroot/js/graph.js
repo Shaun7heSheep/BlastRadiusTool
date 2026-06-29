@@ -20,20 +20,21 @@ let _resizeHandler = null;
 
 /** Map azureType to a distinct colour so healthy nodes are visually grouped. */
 const TYPE_COLORS = {
-    "service-bus":          "#E97132",   // orange
-    "function-app":         "#6BB9F0",   // light blue
-    "cosmos-db":            "#0078D4",   // azure blue
-    "sql-database":         "#E8344E",   // red-pink
-    "api-management":       "#5BB381",   // green
-    "application-insights": "#9B4993",   // purple
-    "key-vault":            "#FFB900",   // gold
-    "storage-account":      "#3F9ED5",   // teal blue
+    "service-bus":          "#F472B6",   // Muted Pink
+    "function-app":         "#60A5FA",   // Sky Blue
+    "cosmos-db":            "#3B82F6",   // Medium Blue
+    "sql-database":         "#818CF8",   // Indigo (Changed from Red-Pink to avoid conflict)
+    "api-management":       "#34D399",   // Emerald (Muted Portal)
+    "application-insights": "#A78BFA",   // Light Purple
+    "key-vault":            "#FBBF24",   // Amber-Gold
+    "storage-account":      "#22D3EE",   // Cyan
 };
 
-const DEFAULT_NODE_COLOR  = "#4682B4";  // steel blue (fallback)
-const DEFAULT_LINK_COLOR  = "#555555";  // dark gray
-const FAILED_NODE_COLOR   = "#FF8C00";  // amber/orange
-const AFFECTED_NODE_COLOR = "#FF4444";  // red
+const DEFAULT_NODE_COLOR  = "#64748B";  // Slate gray (fallback)
+const DEFAULT_LINK_COLOR  = "#ffffff"; // White
+const DEFAULT_PARTICLE_COLOR = "#60A5FA";  // Sky blue
+const FAILED_NODE_COLOR   = "#F59E0B";  // High-visibility Amber/Orange for the root cause
+const AFFECTED_NODE_COLOR = "#EF4444";  // Pure Neon Red for cascading impacts
 
 // ---------------------------------------------------------------------------
 // Exported functions (called from Blazor via IJSObjectReference)
@@ -73,13 +74,14 @@ export function initGraph(elementId, graphData) {
         .linkSource("source")
         .linkTarget("target")
         .linkColor(() => DEFAULT_LINK_COLOR)
-        .linkWidth(1)
-        .linkDirectionalArrowLength(3.5)
+        .linkWidth(1.75)
+        .linkDirectionalArrowLength(4)
         .linkDirectionalArrowRelPos(1)
         .linkDirectionalParticles(1)
         .linkDirectionalParticleSpeed(0.005)
-        .linkDirectionalParticleWidth(1.5)
-        .backgroundColor("#1a1a2e")
+        .linkDirectionalParticleWidth(2)
+        .linkDirectionalParticleColor(() => DEFAULT_PARTICLE_COLOR)
+        .backgroundColor("#0B0F19")
         .width(container.clientWidth)
         .height(container.clientHeight);
 
@@ -124,11 +126,11 @@ export function highlightBlastRadius(result) {
         })
         .linkWidth(link => {
             const key = _linkKey(link);
-            return affectedEdgeKeys.has(key) ? 2.5 : 1;
+            return affectedEdgeKeys.has(key) ? 3.0 : 0.5;
         })
         .linkDirectionalParticles(link => {
             const key = _linkKey(link);
-            return affectedEdgeKeys.has(key) ? 4 : 1;
+            return affectedEdgeKeys.has(key) ? 6 : 0;
         });
 }
 
@@ -141,8 +143,9 @@ export function resetHighlights() {
     _graph
         .nodeColor(node => TYPE_COLORS[node.azureType] || DEFAULT_NODE_COLOR)
         .linkColor(() => DEFAULT_LINK_COLOR)
-        .linkWidth(1)
-        .linkDirectionalParticles(1);
+        .linkWidth(1.75)
+        .linkDirectionalParticles(1)
+        .linkDirectionalParticleColor(() => DEFAULT_PARTICLE_COLOR);
 }
 
 /**

@@ -21,6 +21,13 @@ html, body {
     display: block;
 }
 
+/* === Override 3d-force-graph navigation hint === */
+.scene-nav-info {
+    color: #e0e0e0 !important; /* Change to a clean slate gray, or any color you prefer */
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important;
+    font-size: 0.85rem !important;
+}
+
 /* === Header bar === */
 .header-bar {
     display: flex;
