@@ -10,6 +10,7 @@
 
 | Version | Change |
 |---|---|
+| 1.1 | UI updates — 2D/3D graph toggle, Azure service icons on nodes (Three.js sprites in 3D, canvas rendering in 2D), collapsible application filter side panel with Fluent UI, CSS cleanup and responsive layout fixes |
 | 1.0 | Initial design — Azure Monitor alerts, serverless blast radius engine, Azure SignalR real-time push, Blazor WebAssembly (.NET 10 LTS) 3D dashboard |
 
 ---

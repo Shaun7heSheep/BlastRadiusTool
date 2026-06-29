@@ -2,8 +2,8 @@
 
 <FluentDesignTheme @bind-Mode="@_themeMode" CustomColor="#4682B4" StorageName="theme" />
 
-<FluentLayout>
-    <FluentStack Orientation="Orientation.Vertical" Style="height: 100vh;">
+<FluentLayout Style="height: 100vh; display: flex; flex-direction: column;">
+    <FluentStack Orientation="Orientation.Vertical" Style="flex: 1; min-height: 0; align-items: stretch;">
         @Body
     </FluentStack>
 </FluentLayout>
