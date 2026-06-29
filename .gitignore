@@ -2,6 +2,9 @@
 .vs/
 *.user
 
+# Visual Studio Code
+.vscode/
+
 # .NET build outputs
 bin/
 obj/

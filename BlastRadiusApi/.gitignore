@@ -4,6 +4,7 @@ bin/
 obj
 csx
 .vs
+.vscode
 edge
 Publish
 
