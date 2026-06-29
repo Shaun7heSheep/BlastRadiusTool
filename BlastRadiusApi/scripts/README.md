@@ -70,7 +70,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.13"
       - run: pip install -r BlastRadiusApi/requirements.txt
       - run: python BlastRadiusApi/scripts/seed_graph.py --validate-only
 
@@ -90,7 +90,7 @@ jobs:
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.13"
       - run: pip install -r BlastRadiusApi/requirements.txt
       - run: python BlastRadiusApi/scripts/seed_graph.py
         env:

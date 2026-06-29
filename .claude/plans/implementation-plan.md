@@ -228,7 +228,7 @@ This plan sequences the full implementation across 5 agents (`architect`, `backe
 - **Auth**: Entra ID with placeholder `{TENANT_ID}` and `AAD_CLIENT_ID` setting reference
 - **Response overrides**: 401 → redirect to `/.auth/login/aad`, 403 → serve `index.html`
 - **Security headers**: `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, strict referrer, restrictive permissions policy
-- **Platform**: `apiRuntime: python:3.11`
+- **Platform**: apiRuntime omitted — API is a linked standalone Function App (Bring Your Own), not SWA-managed
 
 ---
 

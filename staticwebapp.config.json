@@ -54,6 +54,6 @@
     "Permissions-Policy": "camera=(), microphone=(), geolocation=()"
   },
   "platform": {
-    "apiRuntime": "python:3.11"
+    "_comment": "apiRuntime omitted — API is a linked standalone Function App (Bring Your Own), not SWA-managed"
   }
 }
