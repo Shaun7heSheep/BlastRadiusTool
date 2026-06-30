@@ -6,7 +6,6 @@ permissionMode: acceptEdits
 color: blue
 skills:
   - api-design
-  - frontend-design-direction
   - team-agent-orchestration
   - agentic-engineering
 ---

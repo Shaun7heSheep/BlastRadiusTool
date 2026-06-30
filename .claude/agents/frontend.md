@@ -6,7 +6,6 @@ permissionMode: acceptEdits
 color: purple
 skills:
   - blazor-expert
-  - dotnet-patterns
   - use-js-interop
   - chrome-devtools-mcp:chrome-devtools
 ---
