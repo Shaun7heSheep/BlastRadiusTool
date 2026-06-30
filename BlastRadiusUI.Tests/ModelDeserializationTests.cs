@@ -31,8 +31,11 @@ public class ModelDeserializationTests
     {
         var json = """
         {
+            "applications": [
+                {"id": "INT-PAY-01", "title": "Payments Processing"}
+            ],
             "nodes": [
-                {"id": "payments-servicebus", "label": "Payments Service Bus", "azureType": "service-bus", "app": "payments", "criticality": "high"}
+                {"id": "payments-servicebus", "label": "Payments Service Bus", "azureType": "service-bus", "appIds": ["INT-PAY-01"], "criticality": "high"}
             ],
             "edges": [
                 {"source": "order-function", "target": "payments-servicebus"}
@@ -41,23 +44,37 @@ public class ModelDeserializationTests
         """;
         var result = JsonSerializer.Deserialize<GraphData>(json, WebOptions);
         Assert.NotNull(result);
+        Assert.Single(result.Applications);
+        Assert.Equal("INT-PAY-01", result.Applications[0].Id);
+        Assert.Equal("Payments Processing", result.Applications[0].Title);
         Assert.Single(result.Nodes);
         Assert.Equal("payments-servicebus", result.Nodes[0].Id);
         Assert.Equal("service-bus", result.Nodes[0].AzureType);
+        Assert.Contains("INT-PAY-01", result.Nodes[0].AppIds);
         Assert.Single(result.Edges);
     }
 
     [Fact]
     public void Deserialize_ServiceNode_AllProperties()
     {
-        var json = """{"id": "cosmos-db", "label": "Cosmos DB", "azureType": "cosmos-db", "app": "shared", "criticality": "high"}""";
+        var json = """{"id": "cosmos-db", "label": "Cosmos DB", "azureType": "cosmos-db", "appIds": ["SHARED"], "criticality": "high"}""";
         var node = JsonSerializer.Deserialize<ServiceNode>(json, WebOptions);
         Assert.NotNull(node);
         Assert.Equal("cosmos-db", node.Id);
         Assert.Equal("Cosmos DB", node.Label);
         Assert.Equal("cosmos-db", node.AzureType);
-        Assert.Equal("shared", node.App);
+        Assert.Contains("SHARED", node.AppIds);
         Assert.Equal("high", node.Criticality);
+    }
+
+    [Fact]
+    public void Deserialize_ApplicationInfo()
+    {
+        var json = """{"id": "INT-35", "title": "Create SO"}""";
+        var app = JsonSerializer.Deserialize<ApplicationInfo>(json, WebOptions);
+        Assert.NotNull(app);
+        Assert.Equal("INT-35", app.Id);
+        Assert.Equal("Create SO", app.Title);
     }
 
     [Fact]

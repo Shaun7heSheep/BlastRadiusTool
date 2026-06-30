@@ -10,6 +10,8 @@
 
 | Version | Change |
 |---|---|
+| 1.2 | Application catalog integration — `app` string replaced with `appIds` array and top-level `applications` list in `services.json`; filter panel shows application ID + title; nodes support multi-app membership; graph populated with realistic integration workflows (INT-01 through INT-35); Logic App and Container App node types with icons and colours |
+| 1.1 | UI updates — 2D/3D graph toggle, Azure service icons on nodes (Three.js sprites in 3D, canvas rendering in 2D), collapsible application filter side panel with Fluent UI, CSS cleanup and responsive layout fixes |
 | 1.0 | Initial design — Azure Monitor alerts, serverless blast radius engine, Azure SignalR real-time push, Blazor WebAssembly (.NET 10 LTS) 3D dashboard |
 
 ---
@@ -243,9 +245,9 @@ Each node represents one Azure resource. Node IDs match Azure resource names exa
 
 | Field | Description | Example |
 |---|---|---|
-| `id` | Azure resource name — must match exactly | `payments-servicebus` |
-| `azureType` | Icon key — maps to the correct Azure icon sprite | `service-bus` |
-| `app` | Owning application | `Payments` |
+| `id` | Azure resource name — must match exactly | `func-kt-so-tss-d365-eus2-prd-01` |
+| `azureType` | Icon key — maps to the correct Azure icon sprite | `function-app` |
+| `appIds` | Owning application(s) — references `applications` list | `["INT-35"]` |
 | `criticality` | Service importance tier | `critical` / `high` / `medium` / `low` |
 
 ### Dependency Edge

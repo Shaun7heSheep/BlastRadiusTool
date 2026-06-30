@@ -10,10 +10,15 @@ FIXTURES_DIR = os.path.join(os.path.dirname(__file__), "fixtures")
 def simple_graph_data():
     """A→B→C chain: api-management → order-function → payments-servicebus."""
     return {
+        "applications": [
+            {"id": "SHARED", "title": "Shared Infrastructure"},
+            {"id": "INT-ORD-01", "title": "Order Management"},
+            {"id": "INT-PAY-01", "title": "Payment Processing"},
+        ],
         "nodes": [
-            {"id": "api-management", "label": "API Management", "azureType": "api-management", "app": "shared", "criticality": "high"},
-            {"id": "order-function", "label": "Order Function", "azureType": "function-app", "app": "orders", "criticality": "high"},
-            {"id": "payments-servicebus", "label": "Payments Service Bus", "azureType": "service-bus", "app": "payments", "criticality": "high"},
+            {"id": "api-management", "label": "API Management", "azureType": "api-management", "appIds": ["SHARED"], "criticality": "high"},
+            {"id": "order-function", "label": "Order Function", "azureType": "function-app", "appIds": ["INT-ORD-01"], "criticality": "high"},
+            {"id": "payments-servicebus", "label": "Payments Service Bus", "azureType": "service-bus", "appIds": ["INT-PAY-01"], "criticality": "high"},
         ],
         "edges": [
             {"source": "api-management", "target": "order-function"},
@@ -26,11 +31,16 @@ def simple_graph_data():
 def diamond_graph_data():
     """Diamond: api-management → order-function/inventory-function → cosmos-db."""
     return {
+        "applications": [
+            {"id": "SHARED", "title": "Shared Infrastructure"},
+            {"id": "INT-ORD-01", "title": "Order Management"},
+            {"id": "INT-INV-01", "title": "Inventory Management"},
+        ],
         "nodes": [
-            {"id": "api-management", "label": "API Management", "azureType": "api-management", "app": "shared", "criticality": "high"},
-            {"id": "order-function", "label": "Order Function", "azureType": "function-app", "app": "orders", "criticality": "high"},
-            {"id": "inventory-function", "label": "Inventory Function", "azureType": "function-app", "app": "inventory", "criticality": "high"},
-            {"id": "cosmos-db", "label": "Cosmos DB", "azureType": "cosmos-db", "app": "shared", "criticality": "high"},
+            {"id": "api-management", "label": "API Management", "azureType": "api-management", "appIds": ["SHARED"], "criticality": "high"},
+            {"id": "order-function", "label": "Order Function", "azureType": "function-app", "appIds": ["INT-ORD-01"], "criticality": "high"},
+            {"id": "inventory-function", "label": "Inventory Function", "azureType": "function-app", "appIds": ["INT-INV-01"], "criticality": "high"},
+            {"id": "cosmos-db", "label": "Cosmos DB", "azureType": "cosmos-db", "appIds": ["SHARED"], "criticality": "high"},
         ],
         "edges": [
             {"source": "api-management", "target": "order-function"},
@@ -45,8 +55,11 @@ def diamond_graph_data():
 def single_node_graph_data():
     """Single isolated node, no edges."""
     return {
+        "applications": [
+            {"id": "INT-PAY-01", "title": "Payment Processing"},
+        ],
         "nodes": [
-            {"id": "payments-servicebus", "label": "Payments Service Bus", "azureType": "service-bus", "app": "payments", "criticality": "high"},
+            {"id": "payments-servicebus", "label": "Payments Service Bus", "azureType": "service-bus", "appIds": ["INT-PAY-01"], "criticality": "high"},
         ],
         "edges": [],
     }

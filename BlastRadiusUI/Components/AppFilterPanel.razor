@@ -1,0 +1,38 @@
+@using Microsoft.FluentUI.AspNetCore.Components
+@using BlastRadiusUI.Models
+
+<div class="app-filter-panel @(IsOpen ? "" : "app-filter-panel--closed")">
+    <div class="app-filter-header">
+        <span class="app-filter-title">Applications</span>
+        <FluentButton Appearance="Appearance.Stealth"
+                      Size="ButtonSize.Small"
+                      OnClick="@(() => IsOpenChanged.InvokeAsync(false))"
+                      Title="Close panel">
+            ✕
+        </FluentButton>
+    </div>
+    <div class="app-filter-list">
+        <FluentButton Appearance="@(SelectedApp is null ? Appearance.Accent : Appearance.Stealth)"
+                      Style="width:100%; justify-content:flex-start;"
+                      OnClick="@(() => SelectedAppChanged.InvokeAsync(null))">
+            All Applications
+        </FluentButton>
+        @foreach (var app in Apps)
+        {
+            var currentApp = app;
+            <FluentButton Appearance="@(SelectedApp == currentApp.Id ? Appearance.Accent : Appearance.Stealth)"
+                          Style="width:100%; justify-content:flex-start;"
+                          OnClick="@(() => SelectedAppChanged.InvokeAsync(currentApp.Id))">
+                <strong>@currentApp.Id</strong>&nbsp;&mdash;&nbsp;@currentApp.Title
+            </FluentButton>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public List<ApplicationInfo> Apps { get; set; } = new();
+    [Parameter] public string? SelectedApp { get; set; }
+    [Parameter] public EventCallback<string?> SelectedAppChanged { get; set; }
+    [Parameter] public bool IsOpen { get; set; }
+    [Parameter] public EventCallback<bool> IsOpenChanged { get; set; }
+}

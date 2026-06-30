@@ -1,88 +1,250 @@
 {
+  "applications": [
+    {"id": "INT-01", "title": "Automatically send new and updated product infor from D365 to TSS"},
+    {"id": "INT-20", "title": "PO data integration D365 to Michelin via APIM"},
+    {"id": "INT-22", "title": "Automated Michelin ASN Integration"},
+    {"id": "INT-23", "title": "Load Warehouse Inventory Invoices (Bridgestone EDI API)"},
+    {"id": "INT-30", "title": "Price Levels to TSS"},
+    {"id": "INT-35", "title": "Create SO (TSS to D365 FO)"}
+  ],
   "nodes": [
     {
-      "id": "payments-servicebus",
-      "label": "Payments Service Bus",
+      "id": "logic-product-d365-out-eus2-prd-01",
+      "label": "Product Data D365 Outbound",
+      "azureType": "logic-apps",
+      "appIds": ["INT-01"],
+      "criticality": "high"
+    },
+    {
+      "id": "func-kt-product-d365-tss-eus2-prd-01",
+      "label": "Product D365-TSS Transformer",
+      "azureType": "function-app",
+      "appIds": ["INT-01"],
+      "criticality": "high"
+    },
+    {
+      "id": "sbq-product-d365-tss-out",
+      "label": "Product TSS Outbound Queue",
       "azureType": "service-bus",
-      "app": "payments",
+      "appIds": ["INT-01"],
       "criticality": "high"
     },
     {
-      "id": "order-function",
-      "label": "Order Function",
+      "id": "logic-product-tss-publish-eus2-prd-01",
+      "label": "Product TSS Publisher",
+      "azureType": "logic-apps",
+      "appIds": ["INT-01"],
+      "criticality": "high"
+    },
+
+    {
+      "id": "logic-po-d365-michelin-out-eus2-prd-01",
+      "label": "PO D365 Michelin Outbound",
+      "azureType": "logic-apps",
+      "appIds": ["INT-20"],
+      "criticality": "high"
+    },
+    {
+      "id": "func-kt-po-d365-michelin-eus2-prd-01",
+      "label": "PO D365-Michelin Transformer",
       "azureType": "function-app",
-      "app": "orders",
+      "appIds": ["INT-20"],
       "criticality": "high"
     },
     {
-      "id": "inventory-function",
-      "label": "Inventory Function",
-      "azureType": "function-app",
-      "app": "inventory",
-      "criticality": "high"
-    },
-    {
-      "id": "notification-function",
-      "label": "Notification Function",
-      "azureType": "function-app",
-      "app": "notifications",
-      "criticality": "medium"
-    },
-    {
-      "id": "cosmos-db",
-      "label": "Cosmos DB",
-      "azureType": "cosmos-db",
-      "app": "shared",
-      "criticality": "high"
-    },
-    {
-      "id": "order-db",
-      "label": "Order Database",
-      "azureType": "sql-database",
-      "app": "orders",
-      "criticality": "high"
-    },
-    {
-      "id": "api-management",
-      "label": "API Management",
+      "id": "apim-kt-michelin-eus2-prd-01",
+      "label": "Michelin API Gateway",
       "azureType": "api-management",
-      "app": "shared",
+      "appIds": ["INT-20"],
       "criticality": "high"
     },
     {
-      "id": "app-insights",
-      "label": "Application Insights",
-      "azureType": "application-insights",
-      "app": "shared",
+      "id": "sbq-po-michelin-out",
+      "label": "PO Michelin Outbound Queue",
+      "azureType": "service-bus",
+      "appIds": ["INT-20"],
+      "criticality": "high"
+    },
+
+    {
+      "id": "sbq-asn-michelin-in",
+      "label": "ASN Michelin Inbound Queue",
+      "azureType": "service-bus",
+      "appIds": ["INT-22"],
+      "criticality": "high"
+    },
+    {
+      "id": "func-kt-asn-michelin-d365-eus2-prd-01",
+      "label": "ASN Michelin-D365 Processor",
+      "azureType": "function-app",
+      "appIds": ["INT-22"],
+      "criticality": "high"
+    },
+    {
+      "id": "ca-kt-asn-processor-eus2-prd-01",
+      "label": "ASN Data Processor",
+      "azureType": "container-app",
+      "appIds": ["INT-22"],
+      "criticality": "high"
+    },
+    {
+      "id": "logic-asn-d365-in-eus2-prd-01",
+      "label": "ASN D365 Inbound",
+      "azureType": "logic-apps",
+      "appIds": ["INT-22"],
+      "criticality": "high"
+    },
+
+    {
+      "id": "sbq-invoice-bridgestone-in",
+      "label": "Invoice Bridgestone Inbound Queue",
+      "azureType": "service-bus",
+      "appIds": ["INT-23"],
+      "criticality": "high"
+    },
+    {
+      "id": "func-kt-invoice-bridgestone-eus2-prd-01",
+      "label": "Invoice Bridgestone Processor",
+      "azureType": "function-app",
+      "appIds": ["INT-23"],
+      "criticality": "high"
+    },
+    {
+      "id": "ca-kt-invoice-processor-eus2-prd-01",
+      "label": "Invoice Data Processor",
+      "azureType": "container-app",
+      "appIds": ["INT-23"],
+      "criticality": "high"
+    },
+    {
+      "id": "logic-invoice-d365-in-eus2-prd-01",
+      "label": "Invoice D365 Inbound",
+      "azureType": "logic-apps",
+      "appIds": ["INT-23"],
+      "criticality": "high"
+    },
+
+    {
+      "id": "logic-pricelevel-d365-out-eus2-prd-01",
+      "label": "Price Level D365 Outbound",
+      "azureType": "logic-apps",
+      "appIds": ["INT-30"],
+      "criticality": "high"
+    },
+    {
+      "id": "func-kt-pricelevel-d365-tss-eus2-prd-01",
+      "label": "Price Level D365-TSS Transformer",
+      "azureType": "function-app",
+      "appIds": ["INT-30"],
+      "criticality": "high"
+    },
+    {
+      "id": "sbq-pricelevel-d365-tss-out",
+      "label": "Price Level TSS Outbound Queue",
+      "azureType": "service-bus",
+      "appIds": ["INT-30"],
+      "criticality": "high"
+    },
+
+    {
+      "id": "sbt-mix-purchase-order-in/sbts-po-tss-d365",
+      "label": "PO TSS-D365 Topic Subscription",
+      "azureType": "service-bus",
+      "appIds": ["INT-35"],
+      "criticality": "high"
+    },
+    {
+      "id": "func-kt-so-tss-d365-eus2-prd-01",
+      "label": "SO TSS-D365 Processor",
+      "azureType": "function-app",
+      "appIds": ["INT-35"],
+      "criticality": "high"
+    },
+    {
+      "id": "sbq-publish-d365-salesorder",
+      "label": "D365 Sales Order Publish Queue",
+      "azureType": "service-bus",
+      "appIds": ["INT-35"],
+      "criticality": "high"
+    },
+    {
+      "id": "logic-salesorder-d365-out-eus2-prd-01",
+      "label": "Sales Order D365 Outbound",
+      "azureType": "logic-apps",
+      "appIds": ["INT-35"],
+      "criticality": "high"
+    },
+    {
+      "id": "ca-kt-pub-so-dmf-eus2-prd-01",
+      "label": "SO DMF Publisher",
+      "azureType": "container-app",
+      "appIds": ["INT-35"],
+      "criticality": "high"
+    },
+    {
+      "id": "sbq-publish-d365-dmfimport",
+      "label": "D365 DMF Import Queue",
+      "azureType": "service-bus",
+      "appIds": ["INT-35"],
+      "criticality": "high"
+    },
+    {
+      "id": "func-kt-pub-dmf-api-eus2-prd-01",
+      "label": "DMF API Publisher",
+      "azureType": "function-app",
+      "appIds": ["INT-35"],
+      "criticality": "high"
+    },
+    {
+      "id": "logic-publishers-d365dmf-eus2-prd-01",
+      "label": "D365 DMF Publishers",
+      "azureType": "logic-apps",
+      "appIds": ["INT-35"],
+      "criticality": "high"
+    },
+    {
+      "id": "sbq-salesorder-retry-in",
+      "label": "Sales Order Retry Queue",
+      "azureType": "service-bus",
+      "appIds": ["INT-35"],
       "criticality": "medium"
     },
     {
-      "id": "key-vault",
-      "label": "Key Vault",
-      "azureType": "key-vault",
-      "app": "shared",
-      "criticality": "high"
-    },
-    {
-      "id": "blob-storage",
-      "label": "Blob Storage",
-      "azureType": "storage-account",
-      "app": "shared",
+      "id": "logic-salesorder-retry-d365-out-eus2-prd-01",
+      "label": "Sales Order Retry",
+      "azureType": "logic-apps",
+      "appIds": ["INT-35"],
       "criticality": "medium"
     }
   ],
   "edges": [
-    { "source": "order-function", "target": "payments-servicebus" },
-    { "source": "order-function", "target": "cosmos-db" },
-    { "source": "order-function", "target": "order-db" },
-    { "source": "inventory-function", "target": "payments-servicebus" },
-    { "source": "inventory-function", "target": "cosmos-db" },
-    { "source": "notification-function", "target": "payments-servicebus" },
-    { "source": "api-management", "target": "order-function" },
-    { "source": "api-management", "target": "inventory-function" },
-    { "source": "order-function", "target": "key-vault" },
-    { "source": "inventory-function", "target": "blob-storage" },
-    { "source": "order-function", "target": "app-insights" },
-    { "source": "notification-function", "target": "app-insights" }
+    { "source": "logic-product-d365-out-eus2-prd-01", "target": "func-kt-product-d365-tss-eus2-prd-01" },
+    { "source": "func-kt-product-d365-tss-eus2-prd-01", "target": "sbq-product-d365-tss-out" },
+    { "source": "sbq-product-d365-tss-out", "target": "logic-product-tss-publish-eus2-prd-01" },
+
+    { "source": "logic-po-d365-michelin-out-eus2-prd-01", "target": "func-kt-po-d365-michelin-eus2-prd-01" },
+    { "source": "func-kt-po-d365-michelin-eus2-prd-01", "target": "apim-kt-michelin-eus2-prd-01" },
+    { "source": "apim-kt-michelin-eus2-prd-01", "target": "sbq-po-michelin-out" },
+
+    { "source": "sbq-asn-michelin-in", "target": "func-kt-asn-michelin-d365-eus2-prd-01" },
+    { "source": "func-kt-asn-michelin-d365-eus2-prd-01", "target": "ca-kt-asn-processor-eus2-prd-01" },
+    { "source": "ca-kt-asn-processor-eus2-prd-01", "target": "logic-asn-d365-in-eus2-prd-01" },
+
+    { "source": "sbq-invoice-bridgestone-in", "target": "func-kt-invoice-bridgestone-eus2-prd-01" },
+    { "source": "func-kt-invoice-bridgestone-eus2-prd-01", "target": "ca-kt-invoice-processor-eus2-prd-01" },
+    { "source": "ca-kt-invoice-processor-eus2-prd-01", "target": "logic-invoice-d365-in-eus2-prd-01" },
+
+    { "source": "logic-pricelevel-d365-out-eus2-prd-01", "target": "func-kt-pricelevel-d365-tss-eus2-prd-01" },
+    { "source": "func-kt-pricelevel-d365-tss-eus2-prd-01", "target": "sbq-pricelevel-d365-tss-out" },
+
+    { "source": "sbt-mix-purchase-order-in/sbts-po-tss-d365", "target": "func-kt-so-tss-d365-eus2-prd-01" },
+    { "source": "func-kt-so-tss-d365-eus2-prd-01", "target": "sbq-publish-d365-salesorder" },
+    { "source": "sbq-publish-d365-salesorder", "target": "logic-salesorder-d365-out-eus2-prd-01" },
+    { "source": "logic-salesorder-d365-out-eus2-prd-01", "target": "ca-kt-pub-so-dmf-eus2-prd-01" },
+    { "source": "ca-kt-pub-so-dmf-eus2-prd-01", "target": "sbq-publish-d365-dmfimport" },
+    { "source": "sbq-publish-d365-dmfimport", "target": "func-kt-pub-dmf-api-eus2-prd-01" },
+    { "source": "func-kt-pub-dmf-api-eus2-prd-01", "target": "logic-publishers-d365dmf-eus2-prd-01" },
+    { "source": "logic-salesorder-d365-out-eus2-prd-01", "target": "sbq-salesorder-retry-in" },
+    { "source": "sbq-salesorder-retry-in", "target": "logic-salesorder-retry-d365-out-eus2-prd-01" }
   ]
 }

@@ -6,25 +6,41 @@
 
 <PageTitle>Blast Radius Tool</PageTitle>
 
-<div style="display:flex; flex-direction:column; height:100vh; background-color:#0d1117; color:#f0f6ff; font-family:Segoe UI, sans-serif; overflow:hidden;">
+<div class="page-shell">
 
     @* ── Header bar ────────────────────────────────────────────────────── *@
-    <header style="display:flex; align-items:center; justify-content:space-between; padding:10px 20px; background-color:#0d1b2a; border-bottom:2px solid #1e4d8c; flex-shrink:0;">
-        <h1 style="margin:0; font-size:1.25rem; font-weight:700; color:#f0f6ff; letter-spacing:0.02em;">
-            ⚡ Blast Radius Tool
-        </h1>
-        <div style="display:flex; align-items:center; gap:8px;">
+    <header class="header-bar">
+        <h1>⚡ Blast Radius Tool</h1>
+        <div class="graph-mode-toggle">
+            <FluentButton Appearance="@(_filterPanelOpen ? Appearance.Accent : Appearance.Stealth)"
+                          Size="ButtonSize.Small"
+                          OnClick="@(() => { _filterPanelOpen = !_filterPanelOpen; })"
+                          Title="Filter by application">
+                ☰ Filter
+            </FluentButton>
+            <FluentButton Appearance="@(_graphMode == "3d" ? Appearance.Accent : Appearance.Stealth)"
+                          OnClick="@(() => SetGraphMode("3d"))"
+                          Size="ButtonSize.Small">
+                3D
+            </FluentButton>
+            <FluentButton Appearance="@(_graphMode == "2d" ? Appearance.Accent : Appearance.Stealth)"
+                          OnClick="@(() => SetGraphMode("2d"))"
+                          Size="ButtonSize.Small">
+                2D
+            </FluentButton>
+        </div>
+        <div class="status-group">
             @if (_isConnected)
             {
-                <span style="display:inline-flex; align-items:center; gap:6px; padding:4px 12px; border-radius:12px; background-color:#0d3320; border:1px solid #00c853; color:#69f0ae; font-size:0.8rem; font-weight:600; letter-spacing:0.05em;">
-                    <span style="width:8px; height:8px; border-radius:50%; background-color:#00c853; display:inline-block;"></span>
+                <span class="status-badge status-badge--live">
+                    <span class="status-dot status-dot--live"></span>
                     LIVE
                 </span>
             }
             else
             {
-                <span style="display:inline-flex; align-items:center; gap:6px; padding:4px 12px; border-radius:12px; background-color:#2d0e0e; border:1px solid #f44336; color:#ff7961; font-size:0.8rem; font-weight:600; letter-spacing:0.05em;">
-                    <span style="width:8px; height:8px; border-radius:50%; background-color:#f44336; display:inline-block;"></span>
+                <span class="status-badge status-badge--disconnected">
+                    <span class="status-dot status-dot--disconnected"></span>
                     DISCONNECTED
                 </span>
             }
@@ -34,38 +50,43 @@
     @* ── Alert banner (visible only during an active blast radius) ───── *@
     @if (_blastResult is not null)
     {
-        <div style="display:flex; align-items:center; gap:14px; padding:12px 20px; background-color:#2d1010; border-bottom:2px solid #ff5252; flex-shrink:0;">
-            <span style="padding:3px 10px; border-radius:4px; background-color:#e65100; color:#ffffff; font-size:0.78rem; font-weight:700; letter-spacing:0.06em; flex-shrink:0;">
-                ⚠ ALERT
+        <div class="alert-banner">
+            <span class="alert-tag">⚠ ALERT</span>
+            <span>
+                <strong class="alert-failed-node">@_blastResult.FailedNode</strong>
+                <span class="muted"> failed &mdash; </span>
+                <strong class="alert-affected-count">@_blastResult.AffectedNodes.Count</strong>
+                <span class="muted"> downstream service(s) affected</span>
             </span>
-            <span style="color:#f0f6ff; font-size:0.9rem;">
-                <strong style="color:#FFB74D; font-size:1rem;">@_blastResult.FailedNode</strong>
-                <span style="color:#90a4ae;"> failed &mdash; </span>
-                <strong style="color:#ff5252; font-size:1rem;">@_blastResult.AffectedNodes.Count</strong>
-                <span style="color:#90a4ae;"> downstream service(s) affected</span>
-            </span>
-            <span style="margin-left:auto; font-size:0.78rem; color:#78909c; white-space:nowrap;">
+            <span class="alert-timestamp">
                 @_blastResult.Timestamp.ToString("yyyy-MM-dd HH:mm:ss") UTC
             </span>
         </div>
     }
 
-    @* ── 3D graph container ────────────────────────────────────────────── *@
-    <div id="graph-container" style="flex:1; min-height:0;"></div>
+    @* ── Graph area with side panel ─────────────────────────────────────── *@
+    <div class="graph-area">
+        <AppFilterPanel Apps="_appNames"
+                        SelectedApp="_selectedApp"
+                        SelectedAppChanged="OnAppFilterChanged"
+                        IsOpen="_filterPanelOpen"
+                        IsOpenChanged="@(open => _filterPanelOpen = open)" />
+        <div id="graph-container"></div>
+    </div>
 
     @* ── Stats footer ──────────────────────────────────────────────────── *@
     @if (_graphData is not null)
     {
-        <footer style="display:flex; align-items:center; gap:28px; padding:8px 20px; background-color:#0d1b2a; border-top:2px solid #1e4d8c; font-size:0.82rem; color:#90a4ae; flex-shrink:0;">
-            <span>Nodes: <strong style="color:#64b5f6;">@_graphData.Nodes.Count</strong></span>
-            <span>Edges: <strong style="color:#64b5f6;">@_graphData.Edges.Count</strong></span>
+        <footer class="stats-footer">
+            <span>Nodes: <strong class="stat-value">@_graphData.Nodes.Count</strong></span>
+            <span>Edges: <strong class="stat-value">@_graphData.Edges.Count</strong></span>
             @if (_blastResult is not null)
             {
                 <span>
-                    Affected: <strong style="color:#ff5252;">@_blastResult.AffectedNodes.Count</strong>
+                    Affected: <strong class="stat-value--alert">@_blastResult.AffectedNodes.Count</strong>
                 </span>
-                <span style="margin-left:auto; color:#78909c; font-size:0.78rem;">
-                    Origin: <strong style="color:#FFB74D;">@_blastResult.FailedNode</strong>
+                <span class="stat-origin">
+                    Origin: <strong class="stat-value--origin">@_blastResult.FailedNode</strong>
                 </span>
             }
         </footer>
@@ -80,6 +101,10 @@
     private BlastRadiusResult? _blastResult;
     private bool _isConnected;
     private bool _graphInitialized;
+    private string _graphMode = "3d";
+    private List<ApplicationInfo> _appNames = new();
+    private string? _selectedApp;
+    private bool _filterPanelOpen;
 
     // ── Lifecycle: load data and set up SignalR ─────────────────────────
     protected override async Task OnInitializedAsync()
@@ -88,6 +113,11 @@
         try
         {
             _graphData = await Http.GetFromJsonAsync<GraphData>("/api/graph");
+
+            if (_graphData is not null)
+            {
+                _appNames = _graphData.Applications?.OrderBy(a => a.Id).ToList() ?? new();
+            }
         }
         catch (Exception ex)
         {
@@ -120,7 +150,7 @@
         _graphInitialized = true;
 
         _jsModule = await JS.InvokeAsync<IJSObjectReference>("import", "./js/graph.js");
-        await _jsModule.InvokeVoidAsync("initGraph", "graph-container", _graphData);
+        await _jsModule.InvokeVoidAsync("initGraph", "graph-container", _graphData, _graphMode);
 
         // If a blast result was already loaded, highlight it immediately.
         if (_blastResult is not null)
@@ -174,6 +204,34 @@
         if (_jsModule is not null)
         {
             await _jsModule.InvokeVoidAsync("highlightBlastRadius", result);
+        }
+    }
+
+    // ── Graph mode toggle ────────────────────────────────────────────────
+    private async Task SetGraphMode(string mode)
+    {
+        if (mode == _graphMode || _jsModule is null) return;
+        _graphMode = mode;
+        await _jsModule.InvokeVoidAsync("toggleMode", mode);
+    }
+
+    // ── App filter ────────────────────────────────────────────────────────
+    private async Task OnAppFilterChanged(string? appName)
+    {
+        _selectedApp = appName;
+        if (_jsModule is null) return;
+
+        if (appName is null)
+        {
+            await _jsModule.InvokeVoidAsync("clearAppFilter");
+        }
+        else
+        {
+            var nodeIds = _graphData!.Nodes
+                .Where(n => n.AppIds.Contains(appName))
+                .Select(n => n.Id)
+                .ToList();
+            await _jsModule.InvokeVoidAsync("highlightApp", appName, nodeIds);
         }
     }
 

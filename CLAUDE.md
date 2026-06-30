@@ -74,6 +74,7 @@ dotnet run --project BlastRadiusUI.Tests -- --coverage --coverage-output-format 
 - **Node `id`** must exactly match the Azure resource name in alert payloads — this is how the function resolves an alert to a graph node without any manual mapping
 - **Edge direction**: `source` **depends on** `target` (consumer → dependency). The graph is reversed before BFS so the algorithm finds everything downstream of the failure
 - Graph computation uses **NetworkX** (Python); add it to `requirements.txt` when implementing
+- The UI supports both 2D and 3D graph rendering, toggled at runtime via the dimension switch in the toolbar
 
 ### Key modules (stubs to implement)
 
@@ -83,7 +84,10 @@ dotnet run --project BlastRadiusUI.Tests -- --coverage --coverage-output-format 
 | `BlastRadiusApi/graph_utils.py` | Graph load, BFS traversal, result serialisation |
 | `BlastRadiusApi/signalr_utils.py` | SignalR broadcast helpers |
 | `BlastRadiusApi/scripts/seed_graph.py` | One-time graph seeding to Blob Storage |
-| `BlastRadiusUI/Pages/Home.razor` | 3D graph dashboard (scaffold stub) |
+| `BlastRadiusUI/Pages/Home.razor` | Graph dashboard with 2D/3D toggle and application filter |
+| `BlastRadiusUI/Components/AppFilterPanel.razor` | Application filter side panel component |
+
+`wwwroot/js/graph.js` exports: `initGraph`, `highlightBlastRadius`, `resetHighlights`, `disposeGraph`, `toggleMode` (2D/3D switch), `highlightApp` (filter by application), `clearAppFilter`.
 
 ### Authentication
 
