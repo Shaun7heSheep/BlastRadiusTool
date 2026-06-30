@@ -42,6 +42,29 @@ def validate_graph(data: dict) -> list[str]:
         if target not in node_id_set:
             errors.append(f"Edge target {target!r} does not match any node id")
 
+    # Validate applications array if present (optional — skip if absent)
+    applications = data.get("applications")
+    if applications is not None:
+        app_ids: set[str] = set()
+        for app in applications:
+            app_id = app.get("id", "")
+            app_title = app.get("title", "")
+            if not isinstance(app_id, str) or not app_id:
+                errors.append(f"Application missing required string 'id': {app!r}")
+            if not isinstance(app_title, str) or not app_title:
+                errors.append(f"Application missing required string 'title': {app!r}")
+            if app_id in app_ids:
+                errors.append(f"Duplicate application id: {app_id!r}")
+            app_ids.add(app_id)
+
+        # Validate that every node's appIds reference valid application IDs
+        for node in nodes:
+            node_id = node.get("id", "")
+            app_id_refs = node.get("appIds", [])
+            for ref in app_id_refs:
+                if ref not in app_ids:
+                    errors.append(f"Node {node_id!r} appIds references unknown application id: {ref!r}")
+
     return errors
 
 

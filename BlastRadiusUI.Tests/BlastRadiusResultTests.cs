@@ -35,9 +35,9 @@ public class BlastRadiusResultTests
     [Fact]
     public void GraphData_Constructor()
     {
-        var nodes = new List<ServiceNode> { new("id", "label", "type", "app", "high") };
+        var nodes = new List<ServiceNode> { new("id", "label", "type", new List<string> { "APP-01" }, "high") };
         var edges = new List<DependencyEdge> { new("a", "b") };
-        var graph = new GraphData(nodes, edges);
+        var graph = new GraphData(new List<ApplicationInfo>(), nodes, edges);
         Assert.Single(graph.Nodes);
         Assert.Single(graph.Edges);
     }
@@ -45,8 +45,11 @@ public class BlastRadiusResultTests
     [Fact]
     public void ServiceNode_RecordEquality()
     {
-        var a = new ServiceNode("id", "label", "type", "app", "high");
-        var b = new ServiceNode("id", "label", "type", "app", "high");
+        // Share the same List instance — List<T> uses reference equality
+        // in record comparisons, so two separate lists would not be equal.
+        var appIds = new List<string> { "APP-01" };
+        var a = new ServiceNode("id", "label", "type", appIds, "high");
+        var b = new ServiceNode("id", "label", "type", appIds, "high");
         Assert.Equal(a, b);
     }
 

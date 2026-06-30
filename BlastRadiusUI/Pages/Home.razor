@@ -102,7 +102,7 @@
     private bool _isConnected;
     private bool _graphInitialized;
     private string _graphMode = "3d";
-    private List<string> _appNames = new();
+    private List<ApplicationInfo> _appNames = new();
     private string? _selectedApp;
     private bool _filterPanelOpen;
 
@@ -116,11 +116,7 @@
 
             if (_graphData is not null)
             {
-                _appNames = _graphData.Nodes
-                    .Select(n => n.App)
-                    .Distinct()
-                    .OrderBy(a => a)
-                    .ToList();
+                _appNames = _graphData.Applications?.OrderBy(a => a.Id).ToList() ?? new();
             }
         }
         catch (Exception ex)
@@ -232,7 +228,7 @@
         else
         {
             var nodeIds = _graphData!.Nodes
-                .Where(n => n.App == appName)
+                .Where(n => n.AppIds.Contains(appName))
                 .Select(n => n.Id)
                 .ToList();
             await _jsModule.InvokeVoidAsync("highlightApp", appName, nodeIds);

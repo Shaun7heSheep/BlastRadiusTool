@@ -30,6 +30,8 @@ let _iconCache = {};
 const TYPE_COLORS = {
     "service-bus":          "#F472B6",
     "function-app":         "#60A5FA",
+    "logic-apps":           "#9333EA",
+    "container-app":        "#10B981",
     "cosmos-db":            "#3B82F6",
     "sql-database":         "#818CF8",
     "api-management":       "#34D399",

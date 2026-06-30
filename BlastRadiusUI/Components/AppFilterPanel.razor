@@ -1,4 +1,5 @@
 @using Microsoft.FluentUI.AspNetCore.Components
+@using BlastRadiusUI.Models
 
 <div class="app-filter-panel @(IsOpen ? "" : "app-filter-panel--closed")">
     <div class="app-filter-header">
@@ -19,17 +20,17 @@
         @foreach (var app in Apps)
         {
             var currentApp = app;
-            <FluentButton Appearance="@(SelectedApp == currentApp ? Appearance.Accent : Appearance.Stealth)"
-                          Style="width:100%; justify-content:flex-start; text-transform:capitalize;"
-                          OnClick="@(() => SelectedAppChanged.InvokeAsync(currentApp))">
-                @currentApp
+            <FluentButton Appearance="@(SelectedApp == currentApp.Id ? Appearance.Accent : Appearance.Stealth)"
+                          Style="width:100%; justify-content:flex-start;"
+                          OnClick="@(() => SelectedAppChanged.InvokeAsync(currentApp.Id))">
+                <strong>@currentApp.Id</strong>&nbsp;&mdash;&nbsp;@currentApp.Title
             </FluentButton>
         }
     </div>
 </div>
 
 @code {
-    [Parameter] public List<string> Apps { get; set; } = new();
+    [Parameter] public List<ApplicationInfo> Apps { get; set; } = new();
     [Parameter] public string? SelectedApp { get; set; }
     [Parameter] public EventCallback<string?> SelectedAppChanged { get; set; }
     [Parameter] public bool IsOpen { get; set; }
